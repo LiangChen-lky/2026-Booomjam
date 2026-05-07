@@ -46,21 +46,21 @@ public class MonsterController : MonoBehaviour
         aiPath.canMove = true;
         aiPath.canSearch = true;
         
-#if UNITY_EDITOR
-        Debug.Log($"[MonsterController] 初始化完成 - maxSpeed: {aiPath.maxSpeed}, canMove: {aiPath.canMove}, canSearch: {aiPath.canSearch}");
-        Debug.Log($"[MonsterController] 怪物位置: {transform.position}");
-        
-        // 检查是否在寻路网格上
-        var node = AstarPath.active.GetNearest(transform.position);
-        if (node.node != null)
-        {
-            Debug.Log($"[MonsterController] 最近节点位置: {(Vector3)node.node.position}");
-        }
-        else
-        {
-            Debug.LogError("[MonsterController] 找不到附近的寻路节点！怪物不在寻路网格上！");
-        }
-#endif
+// #if UNITY_EDITOR
+//         Debug.Log($"[MonsterController] 初始化完成 - maxSpeed: {aiPath.maxSpeed}, canMove: {aiPath.canMove}, canSearch: {aiPath.canSearch}");
+//         Debug.Log($"[MonsterController] 怪物位置: {transform.position}");
+//         
+//         // 检查是否在寻路网格上
+//         var node = AstarPath.active.GetNearest(transform.position);
+//         if (node.node != null)
+//         {
+//             Debug.Log($"[MonsterController] 最近节点位置: {(Vector3)node.node.position}");
+//         }
+//         else
+//         {
+//             Debug.LogError("[MonsterController] 找不到附近的寻路节点！怪物不在寻路网格上！");
+//         }
+// #endif
         
         SwitchToWandering();
     }
@@ -130,13 +130,13 @@ public class MonsterController : MonoBehaviour
         // 设置寻路目标为玩家位置
         aiPath.destination = player.position;
         
-#if UNITY_EDITOR
-        // 调试信息
-        if (Time.frameCount % 60 == 0) // 每60帧输出一次
-        {
-            Debug.Log($"[Monster] State: {currentState}, Pos: {transform.position}, Dest: {aiPath.destination}, Velocity: {aiPath.velocity}, Remaining: {aiPath.remainingDistance}");
-        }
-#endif
+// #if UNITY_EDITOR
+//         // 调试信息
+//         if (Time.frameCount % 60 == 0) // 每60帧输出一次
+//         {
+//             Debug.Log($"[Monster] State: {currentState}, Pos: {transform.position}, Dest: {aiPath.destination}, Velocity: {aiPath.velocity}, Remaining: {aiPath.remainingDistance}");
+//         }
+// #endif
         
         // 如果寻路失败（Remaining为Infinity），使用直接移动
         if (float.IsInfinity(aiPath.remainingDistance))
