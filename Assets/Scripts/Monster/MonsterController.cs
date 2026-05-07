@@ -43,7 +43,7 @@ public class MonsterController : MonoBehaviour
 
         aiPath.maxSpeed = data.moveSpeed;
         aiPath.enableRotation = false;
-        aiPath.canMove = true;
+        aiPath.simulateMovement = true;
         aiPath.canSearch = true;
         
 // #if UNITY_EDITOR
