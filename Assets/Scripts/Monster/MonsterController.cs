@@ -160,12 +160,29 @@ public class MonsterController : MonoBehaviour
         
         if (currentState != MonsterState.Wandering) return;
         
-        if (aiPath.reachedDestination || !hasWanderTarget)
+        // 检查是否需要设置新的漫游点
+        bool needNewTarget = !hasWanderTarget || aiPath.reachedDestination || float.IsInfinity(aiPath.remainingDistance);
+        
+        if (needNewTarget)
         {
             if (Time.time - lastWanderTime >= data.wanderInterval)
             {
                 SetNewWanderPoint();
                 lastWanderTime = Time.time;
+            }
+        }
+        
+        // 如果寻路失败（Remaining为Infinity），使用直接移动
+        if (float.IsInfinity(aiPath.remainingDistance) && hasWanderTarget)
+        {
+            Vector2 direction = (wanderTarget - (Vector2)transform.position).normalized;
+            transform.position += (Vector3)(direction * data.moveSpeed * Time.deltaTime);
+            
+            // 检查是否到达目标点
+            float distanceToTarget = Vector2.Distance(transform.position, wanderTarget);
+            if (distanceToTarget < 0.5f)
+            {
+                hasWanderTarget = false;
             }
         }
     }
