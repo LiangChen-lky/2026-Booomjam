@@ -2,15 +2,15 @@ using UnityEditor;
 using UnityEngine;
 using Cinemachine;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 
 public class CameraBoundsSetup : EditorWindow
 {
     private PolygonCollider2D boundsCollider;
-    private CompositeCollider2D compositeCollider;
-    private string wallsParentName = "Walls";
     private string prefabFolder = "Assets/Prefabs";
     private string[] wallKeywords = { "boundary", "Wall", "wall" };
+    private float cameraPadding = 0.5f;
+    private float maxWallSize = 50f;
 
     [MenuItem("Tools/相机边界设置")]
     public static void ShowWindow()
@@ -23,15 +23,8 @@ public class CameraBoundsSetup : EditorWindow
         GUILayout.Label("相机边界自动配置", EditorStyles.boldLabel);
         EditorGUILayout.Space();
 
-        // ========== 第0步：给Prefab墙体添加碰撞体 ==========
         GUILayout.Label("第0步：给 Prefab 墙体添加碰撞体", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "扫描 Prefab 文件夹，给所有 boundary/Wall 对象自动添加 BoxCollider2D，\n" +
-            "并设置 compositeOperation = Merge，使其可用于 CompositeCollider2D。",
-            MessageType.Info);
-
         prefabFolder = EditorGUILayout.TextField("Prefab 文件夹", prefabFolder);
-
         if (GUILayout.Button("扫描并添加碰撞体到 Prefab"))
         {
             AddCollidersToPrefabs();
@@ -39,66 +32,28 @@ public class CameraBoundsSetup : EditorWindow
 
         EditorGUILayout.Space(10);
 
-        // ========== 第1步：CompositeCollider2D（推荐） ==========
-        GUILayout.Label("第1步：配置 CompositeCollider2D", EditorStyles.boldLabel);
+        GUILayout.Label("第1步：生成相机边界", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "将场景中所有墙体 BoxCollider2D 合并为一个复杂形状，\n" +
-            "Confiner2D 直接引用它，墙体变化时碰撞区域自动更新。",
+            "每个房间/区域生成一个矩形路径，\n" +
+            "合并到 PolygonCollider2D 中。",
             MessageType.Info);
 
-        wallsParentName = EditorGUILayout.TextField("Walls 父对象名", wallsParentName);
+        cameraPadding = EditorGUILayout.FloatField("边界内缩量", cameraPadding);
+        maxWallSize = EditorGUILayout.FloatField("最大墙体尺寸", maxWallSize);
+        EditorGUILayout.HelpBox("超过此尺寸的 boundary sprite 会被跳过（避免超大 sprite 拉大矩形）", MessageType.None);
 
-        if (GUILayout.Button("一键配置 CompositeCollider2D"))
+        if (GUILayout.Button("一键生成相机边界"))
         {
-            SetupCompositeConfiner();
+            GenerateCameraBounds();
         }
 
-        EditorGUILayout.Space(20);
-
-        // ========== 方案2：手动 PolygonCollider2D ==========
-        GUILayout.Label("备选：手动 PolygonCollider2D", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "手动编辑多边形顶点，适合简单形状或精确控制。",
-            MessageType.Info);
-
+        EditorGUILayout.Space(10);
         boundsCollider = (PolygonCollider2D)EditorGUILayout.ObjectField(
-            "边界碰撞体", boundsCollider, typeof(PolygonCollider2D), true);
-
-        if (GUILayout.Button("创建 PolygonCollider2D 边界"))
-        {
-            CreatePolygonBounds();
-        }
-
-        if (GUILayout.Button("配置 VirtualCamera (Polygon)"))
-        {
-            SetupVirtualCameraPolygon();
-        }
-
-        EditorGUILayout.Space(20);
-
-        // ========== 状态显示 ==========
-        compositeCollider = (CompositeCollider2D)EditorGUILayout.ObjectField(
-            "当前 Composite", compositeCollider, typeof(CompositeCollider2D), true);
-
-        EditorGUILayout.Space();
-        if (GUILayout.Button("刷新：选中场景中所有墙体"))
-        {
-            var walls = GameObject.Find(wallsParentName);
-            if (walls != null)
-            {
-                Selection.activeGameObject = walls;
-                Debug.Log($"已选中 {walls.name}，子对象数量：{walls.transform.childCount}");
-            }
-            else
-            {
-                EditorUtility.DisplayDialog("提示", $"未找到名为「{wallsParentName}」的对象", "确定");
-            }
-        }
+            "当前边界碰撞体", boundsCollider, typeof(PolygonCollider2D), true);
     }
 
     private void AddCollidersToPrefabs()
     {
-        // 查找所有 prefab
         string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { prefabFolder });
         if (prefabGuids.Length == 0)
         {
@@ -108,7 +63,6 @@ public class CameraBoundsSetup : EditorWindow
 
         int totalAdded = 0;
         int totalSkipped = 0;
-        var log = new List<string>();
 
         foreach (string guid in prefabGuids)
         {
@@ -116,196 +70,181 @@ public class CameraBoundsSetup : EditorWindow
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null) continue;
 
-            // 查找所有子对象（递归）
             Transform[] allChildren = prefab.GetComponentsInChildren<Transform>(true);
             bool prefabModified = false;
 
             foreach (Transform child in allChildren)
             {
-                // 跳过根对象
                 if (child == prefab.transform) continue;
-
                 string objName = child.gameObject.name;
 
-                // 检查名称是否匹配关键词
                 bool isWall = false;
                 foreach (string keyword in wallKeywords)
                 {
-                    if (objName.Contains(keyword))
-                    {
-                        isWall = true;
-                        break;
-                    }
+                    if (objName.Contains(keyword)) { isWall = true; break; }
                 }
                 if (!isWall) continue;
 
-                // 检查是否有 SpriteRenderer
                 var sr = child.GetComponent<SpriteRenderer>();
                 if (sr == null) continue;
 
-                // 检查是否已有 Collider2D
-                var existingCol = child.GetComponent<Collider2D>();
-                if (existingCol != null)
+                var existingCol = child.GetComponent<BoxCollider2D>();
+                if (existingCol != null) { totalSkipped++; continue; }
+
+                Sprite sprite = sr.sprite;
+                Vector2 spriteSize;
+                if (sprite != null && sprite.rect.width > 0 && sprite.rect.height > 0)
                 {
-                    // 已有碰撞体，只确保 compositeOperation 正确
-                    if (existingCol.compositeOperation != Collider2D.CompositeOperation.Merge)
-                    {
-                        existingCol.compositeOperation = Collider2D.CompositeOperation.Merge;
-                        log.Add($"  [设置Merge] {path} → {objName}");
-                        prefabModified = true;
-                        totalAdded++;
-                    }
-                    else
-                    {
-                        totalSkipped++;
-                    }
+                    spriteSize = new Vector2(
+                        sprite.rect.width / sprite.pixelsPerUnit,
+                        sprite.rect.height / sprite.pixelsPerUnit);
+                }
+                else
+                {
+                    spriteSize = sr.localBounds.size;
+                }
+
+                if (spriteSize.x < 0.01f || spriteSize.y < 0.01f)
+                {
+                    totalSkipped++;
                     continue;
                 }
 
-                // 使用 SpriteRenderer 的 localBounds 计算碰撞体大小
-                Bounds bounds = sr.localBounds;
-                Vector2 spriteSize = bounds.size;
-
-                // 添加 BoxCollider2D
                 var col = child.gameObject.AddComponent<BoxCollider2D>();
                 col.size = spriteSize;
-                col.offset = bounds.center;
-                col.compositeOperation = Collider2D.CompositeOperation.Merge;
-
-                log.Add($"  [添加BoxCollider2D] {path} → {objName} (size: {spriteSize:F2})");
+                col.offset = Vector2.zero;
                 prefabModified = true;
                 totalAdded++;
             }
 
-            if (prefabModified)
-            {
-                EditorUtility.SetDirty(prefab);
-            }
+            if (prefabModified) EditorUtility.SetDirty(prefab);
         }
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-
-        string summary = $"扫描完成！\n\n" +
-            $"扫描 Prefab 数量: {prefabGuids.Length}\n" +
-            $"新增碰撞体: {totalAdded} 个\n" +
-            $"已有碰撞体: {totalSkipped} 个\n\n" +
-            $"详细日志请看 Console";
-
-        Debug.Log("=== Prefab 碰撞体添加日志 ===\n" + string.Join("\n", log));
-        EditorUtility.DisplayDialog("完成", summary, "确定");
-    }
-
-    private void SetupCompositeConfiner()
-    {
-        // 1. 查找 Walls 父对象
-        var wallsGo = GameObject.Find(wallsParentName);
-        if (wallsGo == null)
-        {
-            EditorUtility.DisplayDialog("错误", $"场景中未找到名为「{wallsParentName}」的对象", "确定");
-            return;
-        }
-
-        // 2. 添加 Rigidbody2D（Static）
-        var rb = wallsGo.GetComponent<Rigidbody2D>();
-        if (rb == null)
-        {
-            rb = Undo.AddComponent<Rigidbody2D>(wallsGo);
-        }
-        rb.bodyType = RigidbodyType2D.Static;
-
-        // 3. 添加 CompositeCollider2D
-        var composite = wallsGo.GetComponent<CompositeCollider2D>();
-        if (composite == null)
-        {
-            composite = Undo.AddComponent<CompositeCollider2D>(wallsGo);
-        }
-        composite.geometryType = CompositeCollider2D.GeometryType.Polygons;
-        compositeCollider = composite;
-
-        // 4. 遍历所有子对象的 Collider2D，勾选 Used by Composite
-        var colliders = wallsGo.GetComponentsInChildren<Collider2D>();
-        int count = 0;
-        foreach (var col in colliders)
-        {
-            if (col.gameObject == wallsGo) continue; // 跳过父对象自身的碰撞体
-            if (col.compositeOperation != Collider2D.CompositeOperation.Merge)
-            {
-                Undo.RecordObject(col, "Enable CompositeMerge");
-                col.compositeOperation = Collider2D.CompositeOperation.Merge;
-                count++;
-            }
-        }
-
-        // 5. 配置 VirtualCamera 使用 CompositeCollider2D
-        var vcam = FindObjectOfType<CinemachineVirtualCamera>();
-        if (vcam == null)
-        {
-            EditorUtility.DisplayDialog("错误", "场景中未找到 CinemachineVirtualCamera", "确定");
-            return;
-        }
-
-        var confiner = vcam.GetComponent<CinemachineConfiner2D>();
-        if (confiner == null)
-        {
-            confiner = Undo.AddComponent<CinemachineConfiner2D>(vcam.gameObject);
-        }
-
-        confiner.m_BoundingShape2D = composite;
-        confiner.m_Damping = 0.5f;
-        confiner.m_MaxWindowSize = 0;
-
-        // 6. 清理旧的 CameraBounds 对象（如果存在）
-        var oldBounds = GameObject.Find("CameraBounds");
-        if (oldBounds != null)
-        {
-            Undo.DestroyObjectImmediate(oldBounds);
-        }
-
         EditorUtility.DisplayDialog("完成",
-            $"CompositeCollider2D 配置完成！\n\n" +
-            $"Walls 对象: {wallsGo.name}\n" +
-            $"启用 UsedByComposite 的碰撞体: {count} 个\n" +
-            $"VirtualCamera: {vcam.name}\n\n" +
-            $"墙体变化时碰撞区域会自动更新。",
-            "确定");
+            $"新增: {totalAdded}，已有: {totalSkipped}", "确定");
     }
 
-    private void CreatePolygonBounds()
+    private void GenerateCameraBounds()
     {
-        var existing = GameObject.Find("CameraBounds");
-        if (existing != null)
+        // 1. 收集墙体碰撞体，按所在 prefab 实例的根对象分组
+        var allBoxCols = FindObjectsOfType<BoxCollider2D>();
+        var groups = new Dictionary<Transform, List<Rect>>();
+
+        foreach (var col in allBoxCols)
         {
-            boundsCollider = existing.GetComponent<PolygonCollider2D>();
-            EditorUtility.DisplayDialog("提示", "已存在 CameraBounds 对象，已自动选中", "确定");
-            Selection.activeGameObject = existing;
+            if (col.isTrigger) continue;
+            if (col.GetComponentInParent<PlayerController>() != null) continue;
+            if (col.GetComponentInParent<MonsterController>() != null) continue;
+
+            string name = col.gameObject.name;
+            bool isWall = false;
+            foreach (string kw in wallKeywords)
+            {
+                if (name.Contains(kw)) { isWall = true; break; }
+            }
+            if (!isWall) continue;
+
+            Vector2 size = col.bounds.size;
+            if (size.x < 0.01f || size.y < 0.01f) continue;
+
+            // 跳过尺寸过大的 boundary sprite（视觉装饰用，不适合做碰撞边界）
+            if (size.x > maxWallSize || size.y > maxWallSize)
+            {
+                Debug.Log($"[跳过-过大] {name} root={col.transform.root.name} size={size}");
+                continue;
+            }
+
+            // 找到所属 prefab 实例的根对象
+            Transform root = col.transform.root;
+
+            if (!groups.ContainsKey(root))
+                groups[root] = new List<Rect>();
+
+            groups[root].Add(new Rect(
+                col.bounds.min.x, col.bounds.min.y,
+                size.x, size.y));
+
+            Debug.Log($"[墙体] {name} root={root.name} center={col.bounds.center} size={size}");
+        }
+
+        Debug.Log($"[相机边界] 有效墙体: {groups.Values.Sum(g => g.Count)}，分组: {groups.Count}");
+
+        if (groups.Count == 0)
+        {
+            EditorUtility.DisplayDialog("错误", "未找到有效墙体。请先执行第0步。", "确定");
             return;
         }
 
-        var go = new GameObject("CameraBounds");
-        boundsCollider = go.AddComponent<PolygonCollider2D>();
-        boundsCollider.isTrigger = true;
+        // 2. 每个 prefab 实例计算 AABB 矩形
+        var allPaths = new List<Vector2[]>();
 
-        boundsCollider.points = new Vector2[]
+        foreach (var kvp in groups)
         {
-            new Vector2(-10, -10),
-            new Vector2(10, -10),
-            new Vector2(10, 10),
-            new Vector2(-10, 10)
-        };
+            string rootName = kvp.Key.name;
+            var rects = kvp.Value;
 
-        Selection.activeGameObject = go;
-        EditorUtility.DisplayDialog("完成", "已创建 CameraBounds 对象\n请在场景中编辑碰撞体顶点以匹配你的地图边界", "确定");
-    }
+            float minX = float.MaxValue, minY = float.MaxValue;
+            float maxX = float.MinValue, maxY = float.MinValue;
 
-    private void SetupVirtualCameraPolygon()
-    {
+            foreach (var r in rects)
+            {
+                if (r.xMin < minX) minX = r.xMin;
+                if (r.yMin < minY) minY = r.yMin;
+                if (r.xMax > maxX) maxX = r.xMax;
+                if (r.yMax > maxY) maxY = r.yMax;
+            }
+
+            minX += cameraPadding;
+            minY += cameraPadding;
+            maxX -= cameraPadding;
+            maxY -= cameraPadding;
+
+            if (maxX - minX < 0.1f || maxY - minY < 0.1f)
+            {
+                Debug.LogWarning($"[{rootName}] 矩形太小，跳过");
+                continue;
+            }
+
+            var rect = new Vector2[]
+            {
+                new Vector2(minX, minY),
+                new Vector2(maxX, minY),
+                new Vector2(maxX, maxY),
+                new Vector2(minX, maxY)
+            };
+
+            allPaths.Add(rect);
+            Debug.Log($"[{rootName}] 矩形: ({minX:F1},{minY:F1}) - ({maxX:F1},{maxY:F1}) size=({maxX-minX:F1},{maxY-minY:F1})");
+        }
+
+        if (allPaths.Count == 0)
+        {
+            EditorUtility.DisplayDialog("错误", "未能生成有效矩形", "确定");
+            return;
+        }
+
+        // 4. 创建 PolygonCollider2D（多路径）
+        var boundsGo = GameObject.Find("CameraBounds");
+        if (boundsGo == null)
+        {
+            boundsGo = new GameObject("CameraBounds");
+            Undo.RegisterCreatedObjectUndo(boundsGo, "Create CameraBounds");
+        }
+
+        boundsCollider = boundsGo.GetComponent<PolygonCollider2D>();
         if (boundsCollider == null)
+            boundsCollider = Undo.AddComponent<PolygonCollider2D>(boundsGo);
+
+        boundsCollider.isTrigger = true;
+        boundsCollider.pathCount = allPaths.Count;
+        for (int i = 0; i < allPaths.Count; i++)
         {
-            EditorUtility.DisplayDialog("错误", "请先指定边界碰撞体", "确定");
-            return;
+            boundsCollider.SetPath(i, allPaths[i]);
         }
 
+        // 5. 配置 VirtualCamera
         var vcam = FindObjectOfType<CinemachineVirtualCamera>();
         if (vcam == null)
         {
@@ -315,18 +254,24 @@ public class CameraBoundsSetup : EditorWindow
 
         var confiner = vcam.GetComponent<CinemachineConfiner2D>();
         if (confiner == null)
-        {
             confiner = Undo.AddComponent<CinemachineConfiner2D>(vcam.gameObject);
-        }
 
         confiner.m_BoundingShape2D = boundsCollider;
         confiner.m_Damping = 0.5f;
         confiner.m_MaxWindowSize = 0;
+        confiner.InvalidateCache();
+
+        // 6. 清理旧 Composite
+        var old = GameObject.Find("CameraComposite");
+        if (old != null) Undo.DestroyObjectImmediate(old);
+
+        Selection.activeGameObject = boundsGo;
 
         EditorUtility.DisplayDialog("完成",
-            $"已配置完成：\n" +
-            $"VirtualCamera: {vcam.name}\n" +
-            $"边界碰撞体: {boundsCollider.gameObject.name}\n\n" +
-            $"请运行游戏测试效果", "确定");
+            $"相机边界生成完成！\n\n" +
+            $"房间区域: {allPaths.Count} 个\n\n" +
+            $"请在 Scene 视图中查看 CameraBounds。",
+            "确定");
     }
+
 }
