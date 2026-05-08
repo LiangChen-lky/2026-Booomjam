@@ -152,6 +152,12 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (StoryPanel.IsShowing)
+        {
+            InteractionIcon.gameObject.SetActive(false);
+            return;
+        }
+
         bool show = isInteracting
             || TryGetHideableInRange(out _)
             || TryGetInteractableItemInRange(out _)
@@ -400,6 +406,8 @@ public class PlayerController : MonoBehaviour
     // 玩家按下交互键时触发的回调方法，可以在这里处理交互逻辑，比如打开门、拾取物品等。
     private void OnInteractionStarted(InputAction.CallbackContext obj)
     {
+        if (StoryPanel.IsShowing) return;
+
         if (isInteracting)
         {
             if (targetObject == null) return;
