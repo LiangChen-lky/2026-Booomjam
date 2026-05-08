@@ -35,27 +35,9 @@ public class MonsterNavigationSetup : EditorWindow
         gridGraph.collision.diameter = 0.5f;
         gridGraph.collision.height = 1f;
         
-        // 碰撞检测层 - 只检测 Obstacle 层
-        int obstacleLayer = LayerMask.NameToLayer("Obstacle");
-        if (obstacleLayer >= 0)
-        {
-            gridGraph.collision.mask = (1 << obstacleLayer);
-        }
-        else
-        {
-            // 如果没有 Obstacle 层，尝试找 Walls 层
-            int wallsLayer = LayerMask.NameToLayer("Walls");
-            if (wallsLayer >= 0)
-            {
-                gridGraph.collision.mask = (1 << wallsLayer);
-            }
-            else
-            {
-                // 默认检测所有层
-                gridGraph.collision.mask = -1;
-                Debug.LogWarning("[MonsterNav] 未找到 Obstacle 或 Walls 层，使用默认碰撞检测");
-            }
-        }
+        // 碰撞检测层 - 检测 Default(0) 和 Obstacle(6) 层
+        gridGraph.collision.mask = (1 << 0) | (1 << 6);
+        Debug.Log("[MonsterNav] 碰撞检测层: Default + Obstacle");
         
         // 禁用高度检测
         gridGraph.collision.heightMask = 0;
