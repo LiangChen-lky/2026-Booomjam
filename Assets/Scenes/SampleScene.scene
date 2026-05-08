@@ -1586,7 +1586,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 33.5, y: -0.2, z: -10}
+  m_LocalPosition: {x: 58.03, y: -14.24, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1985,6 +1985,58 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomManager: {fileID: 815185762}
   targetRoom: Corridor1
+--- !u!1 &707834668
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 7
+  m_Component:
+  - component: {fileID: 707834670}
+  - component: {fileID: 707834669}
+  m_Layer: 0
+  m_HasEditorInfo: 1
+  m_Name: MinimapRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &707834669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 707834668}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79ca9e910ba32324eb68a48ec67f4d13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textureSize: 256
+  orthographicSize: 45
+  uiWidth: 400
+  uiHeight: 400
+  uiOffset: {x: 10, y: -10}
+  backgroundColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  canvasSortingOrder: 100
+--- !u!4 &707834670
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 707834668}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 34.39174, y: 1.0169967, z: -0.037662506}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &709696751
 GameObject:
   m_ObjectHideFlags: 0
@@ -2337,7 +2389,6 @@ GameObject:
   - component: {fileID: 758653379}
   - component: {fileID: 758653378}
   - component: {fileID: 758653377}
-  - component: {fileID: 758653376}
   m_Layer: 6
   m_HasEditorInfo: 1
   m_Name: Bed
@@ -2346,18 +2397,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &758653376
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 758653375}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 05b4e35e738a707448531d1bb1ec5376, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!61 &758653377
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -3652,7 +3691,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   data:
-    moveSpeed: 3
+    moveSpeed: 2
     trackingRange: 200
     attackRange: 1.5
     attackDamage: 1
@@ -5512,7 +5551,7 @@ Transform:
   m_GameObject: {fileID: 1706760275}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 33.5, y: -0.2, z: -10}
+  m_LocalPosition: {x: 58.03, y: -14.24, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -5931,7 +5970,7 @@ Transform:
   m_GameObject: {fileID: 1883391179}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 33.5, y: -0.2, z: 0}
+  m_LocalPosition: {x: 58.03, y: -14.24, z: 0}
   m_LocalScale: {x: 1.0311167, y: 1.016453, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6676,3 +6715,4 @@ SceneRoots:
   - {fileID: 1356701013}
   - {fileID: 815185763}
   - {fileID: 1426205707}
+  - {fileID: 707834670}
