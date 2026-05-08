@@ -1,0 +1,78 @@
+using UnityEngine;
+using UnityEditor;
+using Pathfinding;
+
+public class MonsterNavigationSetup : EditorWindow
+{
+    [MenuItem("Tools/Setup Monster Navigation")]
+    public static void SetupNavigation()
+    {
+        // 查找或创建 AstarPath 对象
+        AstarPath astarPath = FindObjectOfType<AstarPath>();
+        if (astarPath == null)
+        {
+            GameObject astarObj = new GameObject("AstarPath");
+            astarPath = astarObj.AddComponent<AstarPath>();
+            Debug.Log("[MonsterNav] 创建 AstarPath 对象");
+        }
+
+        // 清除现有图形
+        astarPath.data.graphs = new NavGraph[0];
+
+        // 创建 Grid Graph
+        GridGraph gridGraph = astarPath.data.AddGraph(typeof(GridGraph)) as GridGraph;
+        
+        // 配置 Grid Graph
+        gridGraph.SetDimensions(100, 100, 0.25f);
+        gridGraph.center = new Vector3(0, 0, 0);
+        gridGraph.rotation = new Vector3(0, 0, 0);
+        
+        // 2D 模式设置
+        gridGraph.nearestNodeOnly = false;
+        
+        // 碰撞检测设置
+        gridGraph.collision.use2D = true;
+        gridGraph.collision.diameter = 0.5f;
+        gridGraph.collision.height = 1f;
+        
+        // 碰撞检测层 - 只检测 Obstacle 层
+        int obstacleLayer = LayerMask.NameToLayer("Obstacle");
+        if (obstacleLayer >= 0)
+        {
+            gridGraph.collision.mask = (1 << obstacleLayer);
+        }
+        else
+        {
+            // 如果没有 Obstacle 层，尝试找 Walls 层
+            int wallsLayer = LayerMask.NameToLayer("Walls");
+            if (wallsLayer >= 0)
+            {
+                gridGraph.collision.mask = (1 << wallsLayer);
+            }
+            else
+            {
+                // 默认检测所有层
+                gridGraph.collision.mask = -1;
+                Debug.LogWarning("[MonsterNav] 未找到 Obstacle 或 Walls 层，使用默认碰撞检测");
+            }
+        }
+        
+        // 禁用高度检测
+        gridGraph.collision.heightMask = 0;
+        gridGraph.collision.fromHeight = 100;
+        
+        // 扫描图形
+        AstarPath.active.Scan();
+        
+        Debug.Log("[MonsterNav] 导航配置完成！已创建 Grid Graph 并扫描");
+        
+        // 选中 AstarPath 对象
+        Selection.activeGameObject = astarPath.gameObject;
+    }
+
+    [MenuItem("Tools/Setup Monster Navigation", true)]
+    public static bool SetupNavigationValidation()
+    {
+        return true;
+    }
+}
