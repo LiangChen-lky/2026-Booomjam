@@ -55,15 +55,16 @@ public class PrefabDoorColliderSetup : EditorWindow
         foreach (string guid in prefabGuids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab == null) continue;
 
-            Transform[] allChildren = prefab.GetComponentsInChildren<Transform>(true);
+            GameObject prefabRoot = PrefabUtility.LoadPrefabContents(path);
+            if (prefabRoot == null) continue;
+
+            Transform[] allChildren = prefabRoot.GetComponentsInChildren<Transform>(true);
             bool prefabModified = false;
 
             foreach (Transform child in allChildren)
             {
-                if (child == prefab.transform) continue;
+                if (child == prefabRoot.transform) continue;
 
                 string objName = child.gameObject.name;
                 if (!objName.Contains("door") && !objName.Contains("Door")) continue;
@@ -99,7 +100,12 @@ public class PrefabDoorColliderSetup : EditorWindow
                 totalAdded++;
             }
 
-            if (prefabModified) EditorUtility.SetDirty(prefab);
+            if (prefabModified)
+            {
+                PrefabUtility.SaveAsPrefabAsset(prefabRoot, path);
+            }
+
+            PrefabUtility.UnloadPrefabContents(prefabRoot);
         }
 
         AssetDatabase.SaveAssets();
@@ -126,15 +132,16 @@ public class PrefabDoorColliderSetup : EditorWindow
         foreach (string guid in prefabGuids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab == null) continue;
 
-            Transform[] allChildren = prefab.GetComponentsInChildren<Transform>(true);
+            GameObject prefabRoot = PrefabUtility.LoadPrefabContents(path);
+            if (prefabRoot == null) continue;
+
+            Transform[] allChildren = prefabRoot.GetComponentsInChildren<Transform>(true);
             bool prefabModified = false;
 
             foreach (Transform child in allChildren)
             {
-                if (child == prefab.transform) continue;
+                if (child == prefabRoot.transform) continue;
 
                 string objName = child.gameObject.name;
                 if (!objName.Contains("door") && !objName.Contains("Door")) continue;
@@ -148,7 +155,12 @@ public class PrefabDoorColliderSetup : EditorWindow
                 totalRemoved++;
             }
 
-            if (prefabModified) EditorUtility.SetDirty(prefab);
+            if (prefabModified)
+            {
+                PrefabUtility.SaveAsPrefabAsset(prefabRoot, path);
+            }
+
+            PrefabUtility.UnloadPrefabContents(prefabRoot);
         }
 
         AssetDatabase.SaveAssets();

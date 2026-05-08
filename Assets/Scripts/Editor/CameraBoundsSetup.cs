@@ -439,8 +439,10 @@ public class CameraBoundsSetup : EditorWindow
             {
                 // 排除非门对象（如 DoorTrigger_ 开头的已生成对象）
                 if (name.StartsWith("DoorTrigger_")) continue;
-                // 排除非根层级（避免匹配到 Door 子组件）
-                if (t.GetComponent<SpriteRenderer>() == null) continue;
+                // 排除 Doors 父容器（只处理具体门对象）
+                if (name == "Doors") continue;
+                // 需要有 SpriteRenderer 或 Collider2D
+                if (t.GetComponent<SpriteRenderer>() == null && t.GetComponent<Collider2D>() == null) continue;
                 doorObjects.Add(t);
             }
         }
@@ -472,6 +474,16 @@ public class CameraBoundsSetup : EditorWindow
             triggerParent = new GameObject("DoorTriggers");
             Undo.RegisterCreatedObjectUndo(triggerParent, "Create DoorTriggers");
         }
+        else
+        {
+            // 清除已有的 DoorTrigger 子对象
+            var children = new List<GameObject>();
+            foreach (Transform child in triggerParent.transform)
+                children.Add(child.gameObject);
+            foreach (var child in children)
+                Undo.DestroyObjectImmediate(child);
+            Debug.Log($"[门Trigger] 已清除 {children.Count} 个旧 Trigger");
+        }
 
         foreach (var door in doorObjects)
         {
@@ -488,10 +500,26 @@ public class CameraBoundsSetup : EditorWindow
                 }
             }
 
+            // 如果门不在任何房间内，用最近的房间
+            if (fromRoom == null)
+            {
+                float minDist = float.MaxValue;
+                foreach (var kvp in roomBounds)
+                {
+                    Vector2 roomCenter = kvp.Value.bounds.center;
+                    float dist = Vector2.Distance((Vector2)doorPos, roomCenter);
+                    if (dist < minDist)
+                    {
+                        minDist = dist;
+                        fromRoom = kvp.Key;
+                    }
+                }
+            }
+
             // 找到门朝向的目标房间（门通常在两个房间的边界上）
             // 在门位置附近扩展搜索
             string targetRoom = null;
-            float searchRadius = 3f;
+            float searchRadius = 6f;
             foreach (var kvp in roomBounds)
             {
                 if (kvp.Key == fromRoom) continue;
