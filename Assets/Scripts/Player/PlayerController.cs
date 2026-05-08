@@ -124,12 +124,12 @@ public class PlayerController : MonoBehaviour
 
         if (CurrentHealth <= 0)
         {
-            Debug.Log("玩家死亡");
+            // Debug.Log("玩家死亡");
             return;
         }
         else
         {
-            Debug.Log("玩家受伤，当前生命值：" + CurrentHealth);
+            // Debug.Log("玩家受伤，当前生命值：" + CurrentHealth);
         }
     }
 
@@ -144,7 +144,7 @@ public class PlayerController : MonoBehaviour
     {
         CurrentHealth = Data.MaxHealth;
         CurrentKey = 0;
-        Debug.Log("玩家初始化，当前生命值：" + CurrentHealth + "，当前钥匙数量：" + CurrentKey);
+        // Debug.Log("玩家初始化，当前生命值：" + CurrentHealth + "，当前钥匙数量：" + CurrentKey);
     }
 
     /// <summary>与 <see cref="TryGetObjectInRange"/> 使用同一套范围检测，避免 Trigger 与 Box 不同步导致按键无效。</summary>
@@ -340,19 +340,19 @@ public class PlayerController : MonoBehaviour
         var keyT = travelBag.transform.Find("Key");
         if (keyT == null)
         {
-            Debug.Log("旅行包没有 Key 子物体");
+            // Debug.Log("旅行包没有 Key 子物体");
             return;
         }
 
         if (!keyT.gameObject.activeSelf)
         {
-            Debug.Log("旅行包没有钥匙");
+            // Debug.Log("旅行包没有钥匙");
             return;
         }
 
         keyT.gameObject.SetActive(false);
         AddKey();
-        Debug.Log("获得钥匙，当前钥匙数量：" + CurrentKey);
+        // Debug.Log("获得钥匙，当前钥匙数量：" + CurrentKey);
     }
 
     // 和门交互：按同一交互键切换开/关门。
@@ -364,7 +364,7 @@ public class PlayerController : MonoBehaviour
         {
             SetDoorOpenedState(door, false);
             openedDoorIds.Remove(doorId);
-            Debug.Log("门已关闭。");
+            // Debug.Log("门已关闭。");
             return;
         }
 
@@ -375,7 +375,7 @@ public class PlayerController : MonoBehaviour
         //     return;
         // }
 
-        Debug.Log($"门已打开。");
+        // Debug.Log($"门已打开。");
         SetDoorOpenedState(door, true);
         openedDoorIds.Add(doorId);
     }

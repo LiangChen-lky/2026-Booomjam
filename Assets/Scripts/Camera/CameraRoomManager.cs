@@ -26,25 +26,25 @@ public class CameraRoomManager : MonoBehaviour
                 if (rc.vcam != null)
                 {
                     cameraMap[rc.roomName] = rc.vcam;
-                    Debug.Log($"[CameraRoom] 注册房间相机: {rc.roomName}, Priority={rc.vcam.Priority}");
+                    // Debug.Log($"[CameraRoom] 注册房间相机: {rc.roomName}, Priority={rc.vcam.Priority}");
                 }
             }
         }
 
-        Debug.Log($"[CameraRoom] 共 {cameraMap.Count} 个房间相机");
+        // Debug.Log($"[CameraRoom] 共 {cameraMap.Count} 个房间相机");
 
         // 根据玩家位置设置初始房间
         var player = GameObject.FindWithTag("Player");
         if (player != null)
         {
             string initRoom = FindRoomAtPosition(player.transform.position);
-            Debug.Log($"[CameraRoom] 玩家位置={player.transform.position}, 初始房间={initRoom}");
+            // Debug.Log($"[CameraRoom] 玩家位置={player.transform.position}, 初始房间={initRoom}");
             if (!string.IsNullOrEmpty(initRoom))
                 SwitchRoom(initRoom);
         }
         else
         {
-            Debug.LogWarning("[CameraRoom] 找不到 Player");
+            // Debug.LogWarning("[CameraRoom] 找不到 Player");
         }
     }
 
@@ -53,7 +53,7 @@ public class CameraRoomManager : MonoBehaviour
         if (string.IsNullOrEmpty(newRoom) || newRoom == currentRoom) return;
         if (cameraMap == null || !cameraMap.ContainsKey(newRoom)) return;
 
-        Debug.Log($"[CameraRoom] 切换: {currentRoom} → {newRoom}");
+        // Debug.Log($"[CameraRoom] 切换: {currentRoom} → {newRoom}");
 
         // 禁用所有房间相机
         foreach (var kvp in cameraMap)
