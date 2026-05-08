@@ -154,7 +154,48 @@ public class CameraBoundsSetup : EditorWindow
     {
         // 1. 收集墙体碰撞体，按所在 prefab 实例的根对象分组
         var allBoxCols = FindObjectsOfType<BoxCollider2D>();
+        var allCompositeCols = FindObjectsOfType<CompositeCollider2D>();
         var groups = new Dictionary<Transform, List<Rect>>();
+        var processedObjects = new HashSet<GameObject>();
+
+        // 先处理 CompositeCollider2D（如果其名称匹配墙体关键词）
+        foreach (var composite in allCompositeCols)
+        {
+            // 注意：CompositeCollider2D 的 isTrigger 可能为 true，
+            // 但其子 BoxCollider2D 可能不是 trigger，所以不检查 isTrigger
+            if (composite.GetComponentInParent<PlayerController>() != null) continue;
+            if (composite.GetComponentInParent<MonsterController>() != null) continue;
+
+            string name = composite.gameObject.name;
+            bool isWall = false;
+            foreach (string kw in wallKeywords)
+            {
+                if (name.Contains(kw)) { isWall = true; break; }
+            }
+            if (!isWall) continue;
+
+            processedObjects.Add(composite.gameObject);
+
+            Vector2 size = composite.bounds.size;
+            if (size.x < 0.01f || size.y < 0.01f) continue;
+
+            // 跳过尺寸过大的碰撞体
+            if (size.x > maxWallSize || size.y > maxWallSize)
+            {
+                Debug.Log($"[跳过-过大-Composite] {name} root={composite.transform.root.name} size={size}");
+                continue;
+            }
+
+            Transform root = composite.transform.root;
+            if (!groups.ContainsKey(root))
+                groups[root] = new List<Rect>();
+
+            groups[root].Add(new Rect(
+                composite.bounds.min.x, composite.bounds.min.y,
+                size.x, size.y));
+
+            Debug.Log($"[墙体-Composite] {name} root={root.name} center={composite.bounds.center} size={size}");
+        }
 
         foreach (var col in allBoxCols)
         {
@@ -169,6 +210,33 @@ public class CameraBoundsSetup : EditorWindow
                 if (name.Contains(kw)) { isWall = true; break; }
             }
             if (!isWall) continue;
+
+            // 检查是否是 CompositeCollider2D 的子碰撞体（已被上面处理过）
+            var compositeParent = col.GetComponentInParent<CompositeCollider2D>();
+            if (compositeParent != null && (int)col.compositeOperation == 1) // 1 = Merge
+            {
+                // 如果父级 CompositeCollider2D 已被处理，跳过
+                if (processedObjects.Contains(compositeParent.gameObject))
+                    continue;
+
+                // 否则使用 CompositeCollider2D 的 bounds
+                processedObjects.Add(compositeParent.gameObject);
+                Vector2 compositeSize = compositeParent.bounds.size;
+                if (compositeSize.x >= 0.01f && compositeSize.y >= 0.01f &&
+                    compositeSize.x <= maxWallSize && compositeSize.y <= maxWallSize)
+                {
+                    Transform compositeRoot = compositeParent.transform.root;
+                    if (!groups.ContainsKey(compositeRoot))
+                        groups[compositeRoot] = new List<Rect>();
+
+                    groups[compositeRoot].Add(new Rect(
+                        compositeParent.bounds.min.x, compositeParent.bounds.min.y,
+                        compositeSize.x, compositeSize.y));
+
+                    Debug.Log($"[墙体-Composite子] {compositeParent.gameObject.name} root={compositeRoot.name} center={compositeParent.bounds.center} size={compositeSize}");
+                }
+                continue;
+            }
 
             Vector2 size = col.bounds.size;
             if (size.x < 0.01f || size.y < 0.01f) continue;
