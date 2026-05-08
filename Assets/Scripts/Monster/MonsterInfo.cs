@@ -9,8 +9,8 @@ public class MonsterInfo
     public float moveSpeed = 3f;
     
     [Header("追踪设置")]
-    [Range(0f, 100f)]
-    public float trackingRange = 10f;
+    [Range(0f, 500f)]
+    public float trackingRange = 200f;
     [Range(0f, 100f)]
     public float attackRange = 1.5f;
     [Range(0f, 1000f)]
