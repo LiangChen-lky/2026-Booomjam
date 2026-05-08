@@ -29,7 +29,6 @@ public class PlayerController : MonoBehaviour
     [Tooltip("子物体上用于主动检测的范围（通常为 Trigger 的 BoxCollider2D）。不赋值则无法通过 TryGetObjectInRange 在范围内按 Tag 取物。")]
     [SerializeField] private BoxCollider2D interactionBox;
 
-    [SerializeField] private string travelBagTag = "TravelBag";
     [SerializeField] private string doorTag = "Door";
 
     [Header("门")]
@@ -155,7 +154,7 @@ public class PlayerController : MonoBehaviour
 
         bool show = isInteracting
             || TryGetHideableInRange(out _)
-            || TryGetObjectInRange(travelBagTag, out _)
+            || TryGetInteractableItemInRange(out _)
             || TryGetObjectInRange(doorTag, out _);
         InteractionIcon.gameObject.SetActive(show);
     }
@@ -320,25 +319,30 @@ public class PlayerController : MonoBehaviour
         return false;
     }
 
-    // 与旅行包交互
-    private void InteractWithTravelBag(GameObject travelBag)
+    public bool TryGetInteractableItemInRange(out InteractableItem item)
     {
-        var keyT = travelBag.transform.Find("Key");
-        if (keyT == null)
-        {
-            // Debug.Log("旅行包没有 Key 子物体");
-            return;
-        }
+        item = null;
+        if (interactionBox == null) return false;
 
-        if (!keyT.gameObject.activeSelf)
-        {
-            // Debug.Log("旅行包没有钥匙");
-            return;
-        }
+        Vector2 center = interactionBox.transform.TransformPoint(interactionBox.offset);
+        var lossy = interactionBox.transform.lossyScale;
+        var size = new Vector2(
+            interactionBox.size.x * Mathf.Abs(lossy.x),
+            interactionBox.size.y * Mathf.Abs(lossy.y));
+        float angle = interactionBox.transform.eulerAngles.z;
 
-        keyT.gameObject.SetActive(false);
-        AddKey();
-        // Debug.Log("获得钥匙，当前钥匙数量：" + CurrentKey);
+        int count = Physics2D.OverlapBoxNonAlloc(
+            center, size * 0.5f, angle, interactionOverlapArray, ~0);
+
+        for (int i = 0; i < count; i++)
+        {
+            var c = interactionOverlapArray[i];
+            if (c == null) continue;
+            if (c.attachedRigidbody == Rigidbody) continue;
+            var ii = c.GetComponent<InteractableItem>();
+            if (ii != null) { item = ii; return true; }
+        }
+        return false;
     }
 
     // 和门交互：按同一交互键切换开/关门。
@@ -416,9 +420,9 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (TryGetObjectInRange(travelBagTag, out targetObject))
+        if (TryGetInteractableItemInRange(out var item))
         {
-            InteractWithTravelBag(targetObject);
+            item.OnInteracted(this);
             return;
         }
 
