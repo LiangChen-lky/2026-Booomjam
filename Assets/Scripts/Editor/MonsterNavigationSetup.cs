@@ -28,7 +28,7 @@ public class MonsterNavigationSetup : EditorWindow
         gridGraph.rotation = new Vector3(0, 0, 0);
         
         // 2D 模式设置
-        gridGraph.nearestNodeOnly = false;
+        gridGraph.is2D = true;
         
         // 碰撞检测设置
         gridGraph.collision.use2D = true;
