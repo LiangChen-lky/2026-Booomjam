@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 using Pathfinding;
 
 public enum MonsterState
@@ -21,15 +22,29 @@ public class MonsterController : MonoBehaviour
     [Header("调试")]
     [SerializeField] private MonsterState currentState = MonsterState.Wandering;
     
+    [Header("开门设置")]
+    [SerializeField, Tooltip("怪物前方检测门的距离")]
+    private float doorDetectionRange = 1.5f;
+    
     private AIPath aiPath;
     private float lastAttackTime;
     private float lastWanderTime;
     private Vector2 wanderTarget;
     private bool hasWanderTarget = false;
+    private AudioSource audioSource;
+    private HashSet<int> openedDoorIds = new HashSet<int>();
     
     private void Awake()
     {
         aiPath = GetComponent<AIPath>();
+        
+        // 初始化 AudioSource
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
     
     private void Start()
@@ -127,6 +142,9 @@ public class MonsterController : MonoBehaviour
         if (currentState != MonsterState.Tracking) return;
         if (player == null) return;
         
+        // 检测前方是否有门，自动开门
+        CheckForDoor();
+        
         // 设置寻路目标为玩家位置
         aiPath.destination = player.position;
         
@@ -198,6 +216,74 @@ public class MonsterController : MonoBehaviour
         hasWanderTarget = true;
     }
     
+    // 检测前方是否有门
+    private void CheckForDoor()
+    {
+        if (player == null) return;
+        
+        Vector2 direction = ((Vector2)player.position - (Vector2)transform.position).normalized;
+        RaycastHit2D hit = Physics2D.Raycast(
+            transform.position, 
+            direction, 
+            doorDetectionRange, 
+            LayerMask.GetMask("Default")
+        );
+        
+        if (hit.collider != null && hit.collider.CompareTag("Door"))
+        {
+            int doorId = hit.collider.GetInstanceID();
+            // 只打开未开的门
+            if (!openedDoorIds.Contains(doorId))
+            {
+                OpenDoor(hit.collider.gameObject);
+            }
+        }
+    }
+    
+    // 开门
+    private void OpenDoor(GameObject door)
+    {
+        int doorId = door.GetInstanceID();
+        
+        // 更新 SpriteRenderer 透明度
+        var sr = door.GetComponentInChildren<SpriteRenderer>(true);
+        if (sr != null)
+        {
+            Color c = sr.color;
+            c.a = 0.7f; // 与 PlayerController.doorOpenedSpriteAlpha 一致
+            sr.color = c;
+        }
+
+        // 禁用物理碰撞体（保留 Trigger 用于交互检测）
+        foreach (var col in door.GetComponentsInChildren<Collider2D>(true))
+        {
+            if (!col.isTrigger)
+                col.enabled = false;
+        }
+        
+        // 通知门更新寻路网格
+        var doorComponent = door.GetComponent<Door>();
+        if (doorComponent != null)
+        {
+            doorComponent.OnDoorStateChanged();
+        }
+        
+        // 记录已开门 ID
+        openedDoorIds.Add(doorId);
+        
+        // 播放开门音效
+        PlayDoorOpenSound();
+    }
+    
+    // 播放开门音效
+    private void PlayDoorOpenSound()
+    {
+        if (data != null && data.doorOpenSound != null)
+        {
+            audioSource.PlayOneShot(data.doorOpenSound, data.doorOpenVolume);
+        }
+    }
+    
     private void TryAttackPlayer()
     {
         if (playerController == null) return;
@@ -223,5 +309,12 @@ public class MonsterController : MonoBehaviour
         // 绘制漫游范围
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(transform.position, data.wanderRadius);
+        
+        // 绘制门检测范围
+        Gizmos.color = Color.green;
+        Vector2 dir = player != null ? 
+            ((Vector2)player.position - (Vector2)transform.position).normalized : 
+            (Vector2)transform.right;
+        Gizmos.DrawRay(transform.position, dir * doorDetectionRange);
     }
 }

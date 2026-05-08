@@ -23,4 +23,11 @@ public class MonsterInfo
     public float wanderRadius = 8f;
     [Range(0f, 60f)]
     public float wanderInterval = 3f;
+    
+    [Header("开门设置")]
+    [Tooltip("开门音效")]
+    public AudioClip doorOpenSound;
+    [Tooltip("开门音效音量")]
+    [Range(0f, 1f)]
+    public float doorOpenVolume = 1f;
 }
