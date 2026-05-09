@@ -14,5 +14,6 @@ public class TravelBag : MonoBehaviour
         if (keyT == null || !keyT.gameObject.activeSelf) return;
         keyT.gameObject.SetActive(false);
         player.AddKey();
+        AudioManager.Instance.Play(SFX.BagSearch);
     }
 }

@@ -25,26 +25,22 @@ public class MonsterController : MonoBehaviour
     [Header("开门设置")]
     [SerializeField, Tooltip("怪物前方检测门的距离")]
     private float doorDetectionRange = 1.5f;
-    
+
+    [Header("BGM 切换")]
+    [SerializeField, Tooltip("怪物接近时切换 BGM 的距离")]
+    private float bgmNearDistance = 15f;
+
     private AIPath aiPath;
     private float lastAttackTime;
     private float lastWanderTime;
     private Vector2 wanderTarget;
     private bool hasWanderTarget = false;
-    private AudioSource audioSource;
     private HashSet<int> openedDoorIds = new HashSet<int>();
+    private BGM lastBGMState = BGM.None;
     
     private void Awake()
     {
         aiPath = GetComponent<AIPath>();
-        
-        // 初始化 AudioSource
-        audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
-        {
-            audioSource = gameObject.AddComponent<AudioSource>();
-            audioSource.playOnAwake = false;
-        }
     }
     
     private void Start()
@@ -82,6 +78,8 @@ public class MonsterController : MonoBehaviour
     
     private void Update()
     {
+        UpdateBGMState();
+
         switch (currentState)
         {
             case MonsterState.Tracking:
@@ -282,18 +280,9 @@ public class MonsterController : MonoBehaviour
         
         // 记录已开门 ID
         openedDoorIds.Add(doorId);
-        
+
         // 播放开门音效
-        PlayDoorOpenSound();
-    }
-    
-    // 播放开门音效
-    private void PlayDoorOpenSound()
-    {
-        if (data != null && data.doorOpenSound != null)
-        {
-            audioSource.PlayOneShot(data.doorOpenSound, data.doorOpenVolume);
-        }
+        AudioManager.Instance.PlayAtPosition(SFX.DoorOpen, transform.position);
     }
     
     private void TryAttackPlayer()
@@ -303,11 +292,26 @@ public class MonsterController : MonoBehaviour
         
         lastAttackTime = Time.time;
         playerController.TakeDamage((int)data.attackDamage);
+        AudioManager.Instance.Play(SFX.PlayerHit);
 // #if UNITY_EDITOR
 //         Debug.Log("怪物攻击玩家");
 // #endif
     }
     
+    private void UpdateBGMState()
+    {
+        if (player == null) return;
+
+        float distance = Vector2.Distance(transform.position, player.position);
+        BGM desiredBGM = distance <= bgmNearDistance ? BGM.MonsterNear : BGM.Exploration;
+
+        if (desiredBGM != lastBGMState)
+        {
+            lastBGMState = desiredBGM;
+            AudioManager.Instance.PlayBGM(desiredBGM);
+        }
+    }
+
     private void OnDrawGizmosSelected()
     {
         // 绘制追踪范围

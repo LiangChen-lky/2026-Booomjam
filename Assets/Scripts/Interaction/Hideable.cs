@@ -28,6 +28,7 @@ public class Hideable : MonoBehaviour
         }
         if (hidePoint != null)
             player.SetPlayerPosition(hidePoint.position);
+        AudioManager.Instance.Play(SFX.HideIn);
     }
 
     public void OnExit(PlayerController player)
@@ -39,5 +40,6 @@ public class Hideable : MonoBehaviour
             c.a = originalAlpha;
             sr.color = c;
         }
+        AudioManager.Instance.Play(SFX.HideOut);
     }
 }

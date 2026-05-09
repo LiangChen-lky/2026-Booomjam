@@ -32,7 +32,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private string doorTag = "Door";
 
     [Header("门")]
-    [SerializeField, Min(1)] private int keysRequiredToOpenDoor = 3;
     [Tooltip("开门后门 SpriteRenderer 的透明度。")]
     [SerializeField, Range(0f, 1f)] private float doorOpenedSpriteAlpha = 0.7f;
 
@@ -46,6 +45,10 @@ public class PlayerController : MonoBehaviour
     [Header("2D 平面修正")]
     [Tooltip("2D 游戏中玩家固定使用的 Z 值，避免启动时被放到错误深度导致看不见。")]
     [SerializeField] private float fixedWorldZ = 0f;
+
+    [Header("音效")]
+    [Tooltip("脚步声播放间隔（秒）")]
+    [SerializeField, Min(0.1f)] private float footstepInterval = 0.4f;
 
     // 缓存交互对象
     private GameObject targetObject = null;
@@ -62,6 +65,7 @@ public class PlayerController : MonoBehaviour
     private bool hasCachedLookDirection = false;
     private readonly Collider2D[] interactionOverlapArray = new Collider2D[32];
     private readonly HashSet<int> openedDoorIds = new HashSet<int>();
+    private float lastFootstepTime;
 
     public int CurrentHealth { get; private set; }
     public int CurrentKey { get; private set; }
@@ -121,7 +125,7 @@ public class PlayerController : MonoBehaviour
 
         if (CurrentHealth <= 0)
         {
-            // Debug.Log("玩家死亡");
+            AudioManager.Instance.Play(SFX.GameOver);
             return;
         }
         else
@@ -167,9 +171,14 @@ public class PlayerController : MonoBehaviour
 
     private void MovePlayer()
     {
-        // 直接设置速度，保证按键后能立刻产生位移。
-        // 如果后续需要更“飘”的手感，可以再改回加速度式移动。
         Rigidbody.velocity = moveInput.normalized * moveSpeed;
+
+        // 脚步声
+        if (moveInput.sqrMagnitude > 0.01f && Time.time - lastFootstepTime >= footstepInterval)
+        {
+            lastFootstepTime = Time.time;
+            AudioManager.Instance.PlayAtPosition(SFX.PlayerFootstep, transform.position);
+        }
     }
 
     private void UpdateCachedLookDirection(float minimum = 0.0001f)
@@ -361,7 +370,7 @@ public class PlayerController : MonoBehaviour
         {
             SetDoorOpenedState(door, false);
             openedDoorIds.Remove(doorId);
-            // Debug.Log("门已关闭。");
+            AudioManager.Instance.Play(SFX.DoorClose);
             return;
         }
 
@@ -375,6 +384,7 @@ public class PlayerController : MonoBehaviour
         // Debug.Log($"门已打开。");
         SetDoorOpenedState(door, true);
         openedDoorIds.Add(doorId);
+        AudioManager.Instance.Play(SFX.DoorOpen);
     }
 
     private void SetDoorOpenedState(GameObject door, bool isOpened)

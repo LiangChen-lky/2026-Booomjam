@@ -20,8 +20,8 @@ public class KeyManager : MonoBehaviour
     public void CollectKey()
     {
         keysCollected++;
-        // Debug.Log("钥匙搜集成功，当前数量: " + keysCollected);
-        UpdateKeyUI(); // 关键：每次增加都要刷新 UI
+        UpdateKeyUI();
+        AudioManager.Instance.Play(SFX.KeyFound);
     }
 
     private void UpdateKeyUI()

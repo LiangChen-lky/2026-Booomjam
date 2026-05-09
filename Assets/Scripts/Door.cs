@@ -5,7 +5,10 @@ public class Door : MonoBehaviour
 {
     [Header("寻路更新")]
     [SerializeField] private bool updateNavGraph = true;
-    
+
+    [Header("音效")]
+    [SerializeField] private bool playSound = true;
+
     /// <summary>
     /// 当门状态改变时调用此方法更新寻路网格
     /// </summary>
@@ -13,9 +16,19 @@ public class Door : MonoBehaviour
     {
         if (updateNavGraph && AstarPath.active != null)
         {
-            // 更新门周围的寻路网格
             AstarPath.active.UpdateGraphs(GetComponent<Collider2D>().bounds);
-            // Debug.Log("门状态改变，更新寻路网格");
         }
+    }
+
+    public void PlayOpenSound()
+    {
+        if (playSound)
+            AudioManager.Instance.Play(SFX.DoorOpen);
+    }
+
+    public void PlayCloseSound()
+    {
+        if (playSound)
+            AudioManager.Instance.Play(SFX.DoorClose);
     }
 }

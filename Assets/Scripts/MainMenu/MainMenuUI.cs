@@ -11,15 +11,21 @@ public class MainMenuUI : MonoBehaviour
     {
         startButton.onClick.AddListener(OnStartGame);
         exitButton.onClick.AddListener(OnExitGame);
+
+        // 播放大厅 BGM
+        AudioManager.Instance.PlayBGM(BGM.MainMenu);
     }
 
     void OnStartGame()
     {
+        AudioManager.Instance.Play(SFX.UIClick);
+        AudioManager.Instance.PlayBGM(BGM.Exploration);
         SceneManager.LoadScene("SampleScene");
     }
 
     void OnExitGame()
     {
+        AudioManager.Instance.Play(SFX.UIClick);
         Application.Quit();
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
