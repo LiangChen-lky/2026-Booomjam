@@ -18,6 +18,234 @@ MonoBehaviour:
   ambientVolume: 0.5
   bgmCrossFadeDuration: 1.5
   ambientFadeDuration: 0.5
-  bgmEntries: []
-  ambientEntries: []
-  sfxEntries: []
+  bgmEntries:
+  - key: 0
+    sound:
+      clip: {fileID: 0}
+      volume: 0
+      pitchVariance: 0
+      loop: 0
+  - key: 2
+    sound:
+      clip: {fileID: 8300000, guid: e74f79a826b9bc9429073cb0abb81efd, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 3
+    sound:
+      clip: {fileID: 8300000, guid: 39fe0ae509fa16d4fa74a5847e11e07a, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 4
+    sound:
+      clip: {fileID: 8300000, guid: 4de837abc10774040a42ffe3e04a8ad7, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  ambientEntries:
+  - key: 1
+    sound:
+      clip: {fileID: 8300000, guid: f5ff3d0883b1cb74ea7740e9b4009dfd, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 2
+    sound:
+      clip: {fileID: 8300000, guid: f29c30106a6b6134fb993a32af944d69, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 3
+    sound:
+      clip: {fileID: 8300000, guid: f5ff3d0883b1cb74ea7740e9b4009dfd, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 4
+    sound:
+      clip: {fileID: 8300000, guid: f5ff3d0883b1cb74ea7740e9b4009dfd, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 5
+    sound:
+      clip: {fileID: 8300000, guid: ed266cc15b39edf49aa053b171236a0d, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  - key: 6
+    sound:
+      clip: {fileID: 8300000, guid: 1084c21f1d2bcc946991bbfc52ca390e, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 1
+  sfxEntries:
+  - key: 0
+    sound:
+      clip: {fileID: 8300000, guid: c6e1ed8894d18cf44ac4840e9e3497d4, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 1
+    sound:
+      clip: {fileID: 8300000, guid: 5c762175a90915442ad505b78f706d25, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 2
+    sound:
+      clip: {fileID: 8300000, guid: b6c25b25a18a20946be5ae086a6ee56a, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 3
+    sound:
+      clip: {fileID: 8300000, guid: 2e444077d9bcfc9459adbe8cca202ef8, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 4
+    sound:
+      clip: {fileID: 8300000, guid: b2bc30de049ea464ca88e043d4878471, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 5
+    sound:
+      clip: {fileID: 8300000, guid: b2bc30de049ea464ca88e043d4878471, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 6
+    sound:
+      clip: {fileID: 8300000, guid: 747d5c6840c8b6746ad07baaa45e6c02, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 7
+    sound:
+      clip: {fileID: 8300000, guid: 1445951a8eeb7684dbdad046fa488fd7, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 8
+    sound:
+      clip: {fileID: 8300000, guid: 870e885d1d6971649b3289e58ec39a1a, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 9
+    sound:
+      clip: {fileID: 8300000, guid: a3a659b399cca2249b642d8f5256c5ac, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 10
+    sound:
+      clip: {fileID: 8300000, guid: cb5498f602dc9344eab7cdd32b177692, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 11
+    sound:
+      clip: {fileID: 8300000, guid: 7c229b2a60dd0d9418fbd1f8b7721518, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 12
+    sound:
+      clip: {fileID: 8300000, guid: a6893f400ef0e1946bf3823ff08a23a2, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 13
+    sound:
+      clip: {fileID: 8300000, guid: 51a990d9a23e017478f342348abf8454, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 14
+    sound:
+      clip: {fileID: 8300000, guid: 4b360a39dcdd0654d8e70960f079b935, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 15
+    sound:
+      clip: {fileID: 8300000, guid: 6ab6347386ca5e848808a1fb9740a2fe, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 16
+    sound:
+      clip: {fileID: 8300000, guid: 717d3eb996032bb4fbb803e74ec40d10, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 17
+    sound:
+      clip: {fileID: 8300000, guid: f65a5e12831082246b46e720bd10588a, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 18
+    sound:
+      clip: {fileID: 8300000, guid: ee85381cb9fdcf041931ffee3d50e3b8, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 19
+    sound:
+      clip: {fileID: 8300000, guid: c0e2c542cdc6bca4a94c601bc583a6fa, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 20
+    sound:
+      clip: {fileID: 8300000, guid: 41091eb50fc4bcd4d9cb2278c0e232a4, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 21
+    sound:
+      clip: {fileID: 8300000, guid: 326b3a6b995c9544c81b4a2509fe441f, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 22
+    sound:
+      clip: {fileID: 8300000, guid: 976c0839b488383459ce0ff50b88540b, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 23
+    sound:
+      clip: {fileID: 8300000, guid: 900859c7267164e41bd72eac06e5d3b3, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 24
+    sound:
+      clip: {fileID: 8300000, guid: e785abdb89cb73d4bbfdc20b7f94787d, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 25
+    sound:
+      clip: {fileID: 8300000, guid: 1b9758ceab446ea4f84ca41b5094a441, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 26
+    sound:
+      clip: {fileID: 8300000, guid: 852d88e566e7c93468adeaed9b956df4, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0
+  - key: 27
+    sound:
+      clip: {fileID: 8300000, guid: ab4fbabec902bf349b81ed3c64c8c891, type: 3}
+      volume: 1
+      pitchVariance: 0
+      loop: 0

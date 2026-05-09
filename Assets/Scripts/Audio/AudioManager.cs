@@ -22,6 +22,9 @@ public class AudioManager : MonoBehaviour
     [Header("配置")]
     [SerializeField] private AudioConfig config;
 
+    [Header("3D 音效池")]
+    public int maxPositionalSources = 16;
+
     [Header("调试")]
     [SerializeField] private BGM currentBGM = BGM.None;
     [SerializeField] private AmbientRoom currentAmbient = AmbientRoom.None;
@@ -31,6 +34,9 @@ public class AudioManager : MonoBehaviour
     private AudioSource activeBGMSource;
     private AudioSource ambientSource;
     private AudioSource sfxSource;
+
+    private AudioSource[] positionalPool;
+    private int positionalPoolIndex;
 
     private Dictionary<SFX, SoundEntry> sfxLookup;
     private Dictionary<BGM, SoundEntry> bgmLookup;
@@ -85,6 +91,15 @@ public class AudioManager : MonoBehaviour
         ambientSource = CreateSource("Ambient");
 
         sfxSource = CreateSource("SFX");
+
+        // 创建 3D 音效对象池
+        positionalPool = new AudioSource[maxPositionalSources];
+        for (int i = 0; i < maxPositionalSources; i++)
+        {
+            positionalPool[i] = CreateSource("Pos3D_" + i);
+            positionalPool[i].spatialBlend = 1f; // 3D 音效
+        }
+        positionalPoolIndex = 0;
     }
 
     private AudioSource CreateSource(string name)
@@ -152,14 +167,23 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 在指定位置播放 3D 音效（用于怪物、门等世界物体）
+    /// 在指定位置播放 3D 音效（对象池复用，不创建临时 GameObject）
     /// </summary>
     public void PlayAtPosition(SFX sfx, Vector3 position)
     {
         if (!TryGetSFXEntry(sfx, out var entry) || entry.clip == null) return;
+        if (positionalPool == null || positionalPool.Length == 0) return;
 
-        float volume = entry.volume * GetSFXVolume();
-        AudioSource.PlayClipAtPoint(entry.clip, position, volume);
+        // 轮询选择一个 AudioSource（正在播放的会被抢占，实现复用）
+        AudioSource source = positionalPool[positionalPoolIndex];
+        positionalPoolIndex = (positionalPoolIndex + 1) % positionalPool.Length;
+
+        source.transform.position = position;
+        source.clip = entry.clip;
+        source.volume = entry.volume * GetSFXVolume();
+        source.pitch = entry.GetRandomPitch();
+        source.spatialBlend = 1f;
+        source.Play();
     }
 
     /// <summary>
