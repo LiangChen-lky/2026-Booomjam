@@ -14,6 +14,17 @@ public class CameraRoomManager : MonoBehaviour
     public RoomCamera[] roomCameras;
     public string currentRoom;
 
+    [Header("环境音映射")]
+    [Tooltip("房间名到环境音的映射。未映射的房间不播放环境音。")]
+    public RoomAmbientMapping[] ambientMappings;
+
+    [System.Serializable]
+    public class RoomAmbientMapping
+    {
+        public string roomName;
+        public AmbientRoom ambient;
+    }
+
     private Dictionary<string, CinemachineVirtualCamera> cameraMap;
 
     private void Start()
@@ -64,6 +75,23 @@ public class CameraRoomManager : MonoBehaviour
         // 激活目标房间相机
         cameraMap[newRoom].Priority = 100;
         currentRoom = newRoom;
+
+        // 切换环境音
+        SwitchAmbientForRoom(newRoom);
+    }
+
+    private void SwitchAmbientForRoom(string roomName)
+    {
+        if (ambientMappings == null) return;
+
+        foreach (var mapping in ambientMappings)
+        {
+            if (mapping.roomName == roomName)
+            {
+                AudioManager.Instance.PlayAmbient(mapping.ambient);
+                return;
+            }
+        }
     }
 
     public string FindRoomAtPosition(Vector2 worldPos)

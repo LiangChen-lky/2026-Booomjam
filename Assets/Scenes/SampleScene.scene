@@ -1040,6 +1040,99 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &305409856
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 7
+  m_Component:
+  - component: {fileID: 305409859}
+  - component: {fileID: 305409858}
+  - component: {fileID: 305409857}
+  - component: {fileID: 305409860}
+  m_Layer: 0
+  m_HasEditorInfo: 1
+  m_Name: Monitor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &305409857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 305409856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ece0f014deba13c4f8570e9d21f7dd73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onInteracted:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 305409858}
+        m_TargetAssemblyTypeName: MonitorController, Assembly-CSharp
+        m_MethodName: ToggleMonitor
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &305409858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 305409856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff10e58306a9dfc4c85997fc9eea0d99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cameraHeight: 30
+  cameraOrthoSize: 12
+  cooldownDuration: 5
+  signalLostChance: 0.1
+  signalRecoverTime: 3
+  monitorPriority: 200
+--- !u!4 &305409859
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 305409856}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 581.00195, y: 290.03665, z: 2.1014707}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &305409860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 305409856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdc57216ce43c014abe3a87d8e4839c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  signalLostOverlay: {fileID: 50721698}
 --- !u!1 &327026534
 GameObject:
   m_ObjectHideFlags: 0
@@ -2704,6 +2797,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomCameras: []
   currentRoom: 
+  ambientMappings:
+  - roomName: Hall
+    ambient: 1
+  - roomName: Corridor
+    ambient: 2
+  - roomName: Classroom
+    ambient: 3
+  - roomName: Dorm
+    ambient: 4
+  - roomName: Toliet
+    ambient: 5
+  - roomName: AncientHouse
+    ambient: 6
 --- !u!4 &815185763
 Transform:
   m_ObjectHideFlags: 0
@@ -3650,6 +3756,7 @@ MonoBehaviour:
   playerController: {fileID: 1883391180}
   currentState: 1
   doorDetectionRange: 1.5
+  monsterFootstepInterval: 0.5
   bgmNearDistance: 15
 --- !u!1 &1044654977
 GameObject:
@@ -6538,6 +6645,55 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   slider: {fileID: 2053367573}
+--- !u!1 &2059579106
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 7
+  m_Component:
+  - component: {fileID: 2059579108}
+  - component: {fileID: 2059579107}
+  m_Layer: 0
+  m_HasEditorInfo: 1
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2059579107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2059579106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 194817dc0d70fdf45abc74d2a5ba2e0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainMenuSceneName: MainMenu
+  gameSceneName: SampleScene
+  gameOverDelay: 3
+  escapeDelay: 5
+--- !u!4 &2059579108
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2059579106}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 581.00195, y: 290.03665, z: 2.1014707}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2122673106
 GameObject:
   m_ObjectHideFlags: 0
@@ -6607,3 +6763,5 @@ SceneRoots:
   - {fileID: 707834670}
   - {fileID: 1792638931}
   - {fileID: 527802970}
+  - {fileID: 2059579108}
+  - {fileID: 305409859}

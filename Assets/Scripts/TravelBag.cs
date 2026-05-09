@@ -11,7 +11,12 @@ public class TravelBag : MonoBehaviour
     public void PickupKey(PlayerController player)
     {
         var keyT = transform.Find("Key");
-        if (keyT == null || !keyT.gameObject.activeSelf) return;
+        if (keyT == null || !keyT.gameObject.activeSelf)
+        {
+            // 空书包
+            AudioManager.Instance.Play(SFX.EmptyBag);
+            return;
+        }
         keyT.gameObject.SetActive(false);
         player.AddKey();
         AudioManager.Instance.Play(SFX.BagSearch);

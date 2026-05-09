@@ -125,12 +125,10 @@ public class PlayerController : MonoBehaviour
 
         if (CurrentHealth <= 0)
         {
-            AudioManager.Instance.Play(SFX.GameOver);
-            return;
-        }
-        else
-        {
-            // Debug.Log("玩家受伤，当前生命值：" + CurrentHealth);
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPlayerDeath();
+            else
+                AudioManager.Instance.Play(SFX.GameOver);
         }
     }
 

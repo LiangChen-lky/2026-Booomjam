@@ -22,6 +22,13 @@ public class KeyManager : MonoBehaviour
         keysCollected++;
         UpdateKeyUI();
         AudioManager.Instance.Play(SFX.KeyFound);
+
+        if (HasAllKeys())
+        {
+            // 所有钥匙已收集，可以解锁大门
+            // 大门交互逻辑由 MainDoor.TryUnlock 处理
+            Debug.Log("[KeyManager] 已集齐全部钥匙！前往大门逃脱！");
+        }
     }
 
     private void UpdateKeyUI()

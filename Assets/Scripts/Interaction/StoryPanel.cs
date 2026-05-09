@@ -101,10 +101,12 @@ public class StoryPanel : MonoBehaviour
         instance.isShowing = true;
         instance.readyToClose = false;
         if (player != null) player.Input.DisablePlayerMoveInput();
+        AudioManager.Instance.Play(SFX.UIPopupOpen);
     }
 
     private void Hide()
     {
+        AudioManager.Instance.Play(SFX.UIPopupClose);
         panelRoot.SetActive(false);
         isShowing = false;
         if (currentPlayer != null) currentPlayer.Input.EnablePlayerMoveInput();

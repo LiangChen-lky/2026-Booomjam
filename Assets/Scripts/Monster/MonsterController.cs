@@ -26,6 +26,12 @@ public class MonsterController : MonoBehaviour
     [SerializeField, Tooltip("怪物前方检测门的距离")]
     private float doorDetectionRange = 1.5f;
 
+    [Header("怪物音效")]
+    [SerializeField, Tooltip("脚步声播放间隔（秒）")]
+    private float monsterFootstepInterval = 0.5f;
+
+    private float lastMonsterFootstepTime;
+
     [Header("BGM 切换")]
     [SerializeField, Tooltip("怪物接近时切换 BGM 的距离")]
     private float bgmNearDistance = 15f;
@@ -117,9 +123,10 @@ public class MonsterController : MonoBehaviour
     {
         currentState = MonsterState.Tracking;
         hasWanderTarget = false;
-// #if UNITY_EDITOR
-//         Debug.Log("怪物切换到追踪状态");
-// #endif
+
+        // 播放发现玩家咆哮音效
+        AudioManager.Instance.PlayAtPosition(SFX.MonsterGrowl, transform.position);
+        AudioManager.Instance.PlayAtPosition(SFX.MonsterChase, transform.position);
     }
     
     private void SwitchToWandering()
@@ -135,6 +142,13 @@ public class MonsterController : MonoBehaviour
     
     private void TrackingUpdate()
     {
+        // 追踪状态脚步声
+        if (Time.time - lastMonsterFootstepTime >= monsterFootstepInterval)
+        {
+            lastMonsterFootstepTime = Time.time;
+            AudioManager.Instance.PlayAtPosition(SFX.MonsterFootstep, transform.position);
+        }
+
         CheckPlayerState();
         
         if (currentState != MonsterState.Tracking) return;
@@ -172,6 +186,13 @@ public class MonsterController : MonoBehaviour
     
     private void WanderingUpdate()
     {
+        // 漫游状态脚步声（间隔更长）
+        if (aiPath.velocity.sqrMagnitude > 0.1f && Time.time - lastMonsterFootstepTime >= monsterFootstepInterval * 1.5f)
+        {
+            lastMonsterFootstepTime = Time.time;
+            AudioManager.Instance.PlayAtPosition(SFX.MonsterFootstep, transform.position);
+        }
+
         CheckPlayerState();
         
         if (currentState != MonsterState.Wandering) return;
@@ -283,6 +304,7 @@ public class MonsterController : MonoBehaviour
 
         // 播放开门音效
         AudioManager.Instance.PlayAtPosition(SFX.DoorOpen, transform.position);
+        AudioManager.Instance.PlayAtPosition(SFX.MonsterWallHit, transform.position);
     }
     
     private void TryAttackPlayer()
