@@ -141,7 +141,7 @@ public class PlayerController : MonoBehaviour
     {
         damage = Mathf.Clamp(damage, 0, CurrentHealth);
         CurrentHealth -= damage;
-        HealthBar.value *= (float)CurrentHealth / Data.MaxHealth;
+        SyncHealthBarUI();
 
         if (CurrentHealth <= 0)
         {
@@ -163,7 +163,18 @@ public class PlayerController : MonoBehaviour
     {
         CurrentHealth = Data.MaxHealth;
         CurrentKey = 0;
-        // Debug.Log("玩家初始化，当前生命值：" + CurrentHealth + "，当前钥匙数量：" + CurrentKey);
+        SyncHealthBarUI();
+        if (KeyNumberText != null)
+            KeyNumberText.text = CurrentKey.ToString();
+    }
+
+    private void SyncHealthBarUI()
+    {
+        if (HealthBar == null) return;
+        int max = Mathf.Max(1, Data.MaxHealth);
+        HealthBar.minValue = 0f;
+        HealthBar.maxValue = max;
+        HealthBar.value = Mathf.Clamp(CurrentHealth, 0, max);
     }
 
     /// <summary>与 <see cref="TryGetObjectInRange"/> 使用同一套范围检测，避免 Trigger 与 Box 不同步导致按键无效。</summary>
