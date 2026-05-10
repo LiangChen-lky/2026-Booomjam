@@ -50,8 +50,7 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
-        TryBindSceneObjects();
-        SetMaskVisualActive(player != null);
+        SetMaskVisualActive(TryBindSceneObjects());
     }
 
     private void OnDisable()
@@ -71,17 +70,18 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     {
         mainCamera = null;
         player = null;
-        TryBindSceneObjects();
-        SetMaskVisualActive(player != null);
+        SetMaskVisualActive(TryBindSceneObjects());
     }
 
     private void LateUpdate()
     {
         if (!TryBindSceneObjects())
         {
+            SetMaskVisualActive(false);
             return;
         }
 
+        SetMaskVisualActive(true);
         UpdateMaskMaterial();
     }
 

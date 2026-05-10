@@ -23,8 +23,11 @@ public class MainMenuUI : MonoBehaviour
 
         // 创建设置面板
         CreateSettingsPanel();
+    }
 
-        // 播放大厅 BGM
+    private void Start()
+    {
+        // 放到 Start，避免和 AudioManager 的 Awake 初始化顺序打架
         AudioManager.Instance.PlayBGM(BGM.MainMenu);
     }
 
@@ -39,7 +42,7 @@ public class MainMenuUI : MonoBehaviour
 
     private void CreateSettingsPanel()
     {
-        var canvas = FindObjectOfType<Canvas>();
+        var canvas = FindMainMenuCanvas();
 
         if (canvas == null) return;
 
@@ -52,6 +55,20 @@ public class MainMenuUI : MonoBehaviour
         var settingsMenu = settingsPanel.AddComponent<SettingsMenu>();
         settingsMenu.Initialize(ReturnFromSettings);
         settingsPanel.SetActive(false);
+    }
+
+    private Canvas FindMainMenuCanvas()
+    {
+        var canvases = FindObjectsOfType<Canvas>(true);
+        foreach (var canvas in canvases)
+        {
+            if (canvas != null && canvas.gameObject.scene == gameObject.scene)
+            {
+                return canvas;
+            }
+        }
+
+        return null;
     }
 
     void OnStartGame()

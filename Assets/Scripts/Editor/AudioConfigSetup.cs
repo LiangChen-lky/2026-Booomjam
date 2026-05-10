@@ -6,7 +6,7 @@ using UnityEngine;
 public static class AudioConfigSetup
 {
     private const string AudioFolder = "Assets/Audios/01_成品音效_待交付";
-    private const string OutputPath = "Assets/Audios/AudioConfig.asset";
+    private const string OutputPath = "Assets/AudioConfig.asset";
 
     [MenuItem("Tools/Audio/Setup AudioConfig")]
     public static void Setup()

@@ -11,9 +11,15 @@ public class AudioManager : MonoBehaviour
         {
             if (instance == null)
             {
-                var go = new GameObject("[AudioManager]");
-                instance = go.AddComponent<AudioManager>();
-                DontDestroyOnLoad(go);
+                instance = FindObjectOfType<AudioManager>();
+                if (instance == null)
+                {
+                    Debug.LogError("[AudioManager] 场景中没有找到 AudioManager，请确保每个需要音频的场景都放置了该对象。");
+                }
+                else
+                {
+                    instance.EnsureInitialized();
+                }
             }
             return instance;
         }
@@ -37,6 +43,7 @@ public class AudioManager : MonoBehaviour
 
     private AudioSource[] positionalPool;
     private int positionalPoolIndex;
+    private bool isInitialized;
 
     private Dictionary<SFX, SoundEntry> sfxLookup;
     private Dictionary<BGM, SoundEntry> bgmLookup;
@@ -44,18 +51,6 @@ public class AudioManager : MonoBehaviour
 
     private Coroutine bgmFadeCoroutine;
     private Coroutine ambientFadeCoroutine;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void AutoCreate()
-    {
-        if (instance == null)
-        {
-            var go = new GameObject("[AudioManager]");
-            instance = go.AddComponent<AudioManager>();
-            DontDestroyOnLoad(go);
-            instance.Init();
-        }
-    }
 
     private void Awake()
     {
@@ -66,12 +61,20 @@ public class AudioManager : MonoBehaviour
         }
         instance = this;
         DontDestroyOnLoad(gameObject);
-        Init();
+        EnsureInitialized();
     }
 
     private void OnDestroy()
     {
         if (instance == this) instance = null;
+    }
+
+    private void EnsureInitialized()
+    {
+        if (isInitialized) return;
+
+        Init();
+        isInitialized = true;
     }
 
     private void Init()
@@ -192,6 +195,7 @@ public class AudioManager : MonoBehaviour
     public void PlayBGM(BGM bgm, float fadeDuration = -1f)
     {
         if (bgm == currentBGM) return;
+        EnsureInitialized();
         currentBGM = bgm;
 
         if (fadeDuration < 0f)
@@ -208,6 +212,7 @@ public class AudioManager : MonoBehaviour
     public void PlayAmbient(AmbientRoom room, float fadeDuration = -1f)
     {
         if (room == currentAmbient) return;
+        EnsureInitialized();
         currentAmbient = room;
 
         if (fadeDuration < 0f)
