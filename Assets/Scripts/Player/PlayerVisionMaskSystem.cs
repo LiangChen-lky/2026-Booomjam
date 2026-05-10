@@ -51,6 +51,7 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
         TryBindSceneObjects();
+        SetMaskVisualActive(player != null);
     }
 
     private void OnDisable()
@@ -68,7 +69,10 @@ public class PlayerVisionMaskSystem : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        mainCamera = null;
+        player = null;
         TryBindSceneObjects();
+        SetMaskVisualActive(player != null);
     }
 
     private void LateUpdate()
@@ -111,7 +115,7 @@ public class PlayerVisionMaskSystem : MonoBehaviour
 
             maskCanvas = canvasObj.AddComponent<Canvas>();
             maskCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            maskCanvas.sortingOrder = short.MaxValue;
+            maskCanvas.sortingOrder = short.MaxValue - 1;
             canvasObj.AddComponent<CanvasScaler>();
             canvasObj.AddComponent<GraphicRaycaster>();
         }
@@ -145,6 +149,14 @@ public class PlayerVisionMaskSystem : MonoBehaviour
             };
             maskImage.material = maskMaterial;
             maskImage.color = Color.white;
+        }
+    }
+
+    private void SetMaskVisualActive(bool active)
+    {
+        if (maskCanvas != null)
+        {
+            maskCanvas.gameObject.SetActive(active);
         }
     }
 

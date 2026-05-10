@@ -259,6 +259,11 @@ public class AudioManager : MonoBehaviour
         ApplyVolumes();
     }
 
+    public float GetMasterVolumeValue() => config != null ? config.masterVolume : 1f;
+    public float GetBGMVolumeValue() => config != null ? config.bgmVolume : 0.7f;
+    public float GetSFXVolumeValue() => config != null ? config.sfxVolume : 1f;
+    public float GetAmbientVolumeValue() => config != null ? config.ambientVolume : 0.5f;
+
     private float GetMasterVolume() => config != null ? config.masterVolume : 1f;
     private float GetBGMVolume() => config != null ? config.bgmVolume * config.masterVolume : 0.7f;
     private float GetSFXVolume() => config != null ? config.sfxVolume * config.masterVolume : 1f;

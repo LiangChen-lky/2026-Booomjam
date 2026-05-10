@@ -25,6 +25,9 @@ public class PlayerController : MonoBehaviour
     [Tooltip("鼠标移动超过这个像素距离才更新朝向，避免隐藏光标后轻微抖动。")]
     [SerializeField, Min(0f)] private float mouseMovePixelThreshold = 0.1f;
 
+    [Tooltip("鼠标灵敏度倍率，从设置菜单读取。")]
+    private float mouseSensitivity = 1f;
+
     [Header("交互范围")]
     [Tooltip("子物体上用于主动检测的范围（通常为 Trigger 的 BoxCollider2D）。不赋值则无法通过 TryGetObjectInRange 在范围内按 Tag 取物。")]
     [SerializeField] private BoxCollider2D interactionBox;
@@ -82,6 +85,16 @@ public class PlayerController : MonoBehaviour
         mainCamera = Camera.main;
         NormalizeTo2DPlane();
         Initialize();
+
+        // 加载鼠标灵敏度
+        mouseSensitivity = SettingsMenu.GetMouseSensitivity();
+
+        // 自动创建暂停菜单
+        if (FindObjectOfType<PauseMenu>() == null)
+        {
+            var pauseObj = new GameObject("[PauseMenu]");
+            pauseObj.AddComponent<PauseMenu>();
+        }
     }
 
     private void Start()
@@ -103,14 +116,21 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (PauseMenu.IsPaused) return;
+
         // 读取移动输入，后续在物理帧中统一处理位移。
         moveInput = Input.PlayerActions.Move.ReadValue<Vector2>();
         UpdateCachedLookDirection();
         UpdateInteractionIcon();
+
+        // 实时更新灵敏度（用户可能在设置中修改）
+        mouseSensitivity = SettingsMenu.GetMouseSensitivity();
     }
 
     private void FixedUpdate()
     {
+        if (PauseMenu.IsPaused) return;
+
         MovePlayer();
         RotatePlayer();
         // ClampToCamera();
@@ -154,7 +174,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (StoryPanel.IsShowing)
+        if (PauseMenu.IsPaused || StoryPanel.IsShowing)
         {
             InteractionIcon.gameObject.SetActive(false);
             return;
@@ -224,6 +244,7 @@ public class PlayerController : MonoBehaviour
 
     private void RotatePlayer()
     {
+        if (PauseMenu.IsPaused) return;
         if (StoryPanel.IsShowing) return;
         if (!hasCachedLookDirection)
         {
@@ -232,7 +253,8 @@ public class PlayerController : MonoBehaviour
 
         // 先把缓存的鼠标朝向转换成角度，再叠加贴图朝向偏移。
         float targetAngle = Mathf.Atan2(cachedLookDirection.y, cachedLookDirection.x) * Mathf.Rad2Deg + rotationOffset;
-        float nextAngle = Mathf.MoveTowardsAngle(Rigidbody.rotation, targetAngle, rotateSpeed * Time.fixedDeltaTime);
+        float adjustedRotateSpeed = rotateSpeed * mouseSensitivity;
+        float nextAngle = Mathf.MoveTowardsAngle(Rigidbody.rotation, targetAngle, adjustedRotateSpeed * Time.fixedDeltaTime);
         Rigidbody.MoveRotation(nextAngle);
     }
 
@@ -415,7 +437,7 @@ public class PlayerController : MonoBehaviour
     // 玩家按下交互键时触发的回调方法，可以在这里处理交互逻辑，比如打开门、拾取物品等。
     private void OnInteractionStarted(InputAction.CallbackContext obj)
     {
-        if (StoryPanel.IsShowing) return;
+        if (PauseMenu.IsPaused || StoryPanel.IsShowing) return;
 
         if (isInteracting)
         {

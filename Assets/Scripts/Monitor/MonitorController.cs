@@ -205,7 +205,7 @@ public class MonitorController : MonoBehaviour
         if (mask == null) return;
 
         // 直接控制遮罩 Canvas 的显示/隐藏
-        var canvas = mask.GetComponentInChildren<Canvas>();
+        var canvas = mask.GetComponentInChildren<Canvas>(true);
         if (canvas != null)
             canvas.gameObject.SetActive(enabled);
     }

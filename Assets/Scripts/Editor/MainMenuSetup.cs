@@ -52,7 +52,8 @@ public class MainMenuSetup
         titleRect.anchoredPosition = new Vector2(0, -200);
 
         var startBtnGO = CreateButton(canvasGO.transform, "StartButton", "\u5f00\u59cb\u6e38\u620f", new Vector2(0, 0));
-        var exitBtnGO = CreateButton(canvasGO.transform, "ExitButton", "\u9000\u51fa\u6e38\u620f", new Vector2(0, -80));
+        var settingsBtnGO = CreateButton(canvasGO.transform, "SettingsButton", "\u8bbe\u7f6e", new Vector2(0, -80));
+        var exitBtnGO = CreateButton(canvasGO.transform, "ExitButton", "\u9000\u51fa\u6e38\u620f", new Vector2(0, -160));
 
         var eventSystemGO = new GameObject("EventSystem");
         eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
@@ -61,8 +62,12 @@ public class MainMenuSetup
         var menuUIGO = new GameObject("MainMenuUI");
         var menuUI = menuUIGO.AddComponent<MainMenuUI>();
 
+        var audioManagerGO = new GameObject("[AudioManager]");
+        audioManagerGO.AddComponent<AudioManager>();
+
         var so = new SerializedObject(menuUI);
         so.FindProperty("startButton").objectReferenceValue = startBtnGO.GetComponent<Button>();
+        so.FindProperty("settingsButton").objectReferenceValue = settingsBtnGO.GetComponent<Button>();
         so.FindProperty("exitButton").objectReferenceValue = exitBtnGO.GetComponent<Button>();
         so.ApplyModifiedPropertiesWithoutUndo();
 
