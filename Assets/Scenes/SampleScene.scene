@@ -1411,6 +1411,8 @@ MonoBehaviour:
   signalLostChance: 0.1
   signalRecoverTime: 3
   monitorPriority: 200
+  currentMode: 0
+  monitorUIPrefab: {fileID: 8138124282255093446, guid: 4d040de74e42dfc4e8625a5acf85bbe8, type: 3}
 --- !u!4 &305409859
 Transform:
   m_ObjectHideFlags: 0
@@ -1439,6 +1441,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   signalLostOverlay: {fileID: 50721698}
+  ui_monitoring_bg: {fileID: 0}
+  ui_monitoring_rec: {fileID: 0}
 --- !u!1 &306020132 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6539048879233454658, guid: f8c2d0c1c0801514d9a0962bd41d8005, type: 3}

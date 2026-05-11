@@ -315,11 +315,24 @@ public class MonitorController : MonoBehaviour
 
     private void ShowUI()
     {
-        if (monitorUIPrefab == null) return;
+        if (monitorUIPrefab == null)
+        {
+            Debug.LogWarning("[Monitor] monitorUIPrefab is null! Please assign it in Inspector.");
+            return;
+        }
 
         if (monitorUIInstance == null)
         {
-            monitorUIInstance = Instantiate(monitorUIPrefab);
+            // 创建新的 Canvas 用于监控 UI
+            var canvasGo = new GameObject("[MonitorCanvas]");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100; // 高于其他 UI
+            canvasGo.AddComponent<UnityEngine.UI.CanvasScaler>();
+            canvasGo.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
+            // 实例化并添加到新 Canvas 下
+            monitorUIInstance = Instantiate(monitorUIPrefab, canvas.transform);
         }
 
         monitorUIInstance.Show();
