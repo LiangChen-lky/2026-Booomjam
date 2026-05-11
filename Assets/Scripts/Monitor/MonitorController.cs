@@ -12,6 +12,15 @@ public class MonitorController : MonoBehaviour
 {
     public static MonitorController Instance { get; private set; }
 
+    /// <summary>
+    /// 监控模式枚举
+    /// </summary>
+    public enum MonitorMode
+    {
+        Camera,  // 相机模式：使用 Cinemachine 虚拟相机
+        Image    // 图片模式：使用预渲染图片
+    }
+
     [Header("监控设置")]
     [SerializeField, Tooltip("监控相机高度（俯视距离）")]
     private float cameraHeight = 30f;
@@ -25,6 +34,13 @@ public class MonitorController : MonoBehaviour
     private float signalRecoverTime = 3f;
     [SerializeField, Tooltip("监控模式下的相机 Priority")]
     private int monitorPriority = 200;
+    [SerializeField, Tooltip("当前监控模式")]
+    private MonitorMode currentMode = MonitorMode.Camera;
+
+    [Header("UI 设置")]
+    [SerializeField, Tooltip("监控 UI 预制件")]
+    private MonitorCameraUI monitorUIPrefab;
+    private MonitorCameraUI monitorUIInstance;
 
     private struct MonitorCam
     {
@@ -47,6 +63,7 @@ public class MonitorController : MonoBehaviour
     private Coroutine restoreBlendCoroutine;
 
     public bool IsMonitorOpen => isMonitorOpen;
+    public MonitorMode CurrentMode => currentMode;
 
     private void Awake()
     {
@@ -62,6 +79,7 @@ public class MonitorController : MonoBehaviour
     {
         if (Instance == this) Instance = null;
         CleanupCameras();
+        CleanupUI();
     }
 
     private void Update()
@@ -83,12 +101,16 @@ public class MonitorController : MonoBehaviour
             return;
         }
 
-        BuildCameras();
-
-        if (monitorCameras.Count == 0)
+        // 根据模式选择不同的初始化方式
+        if (currentMode == MonitorMode.Camera)
         {
-            Debug.LogWarning("[MonitorController] 没有找到房间边界 (RoomBounds_XXX)");
-            return;
+            BuildCameras();
+
+            if (monitorCameras.Count == 0)
+            {
+                Debug.LogWarning("[MonitorController] 没有找到房间边界 (RoomBounds_XXX)");
+                return;
+            }
         }
 
         isMonitorOpen = true;
@@ -118,10 +140,16 @@ public class MonitorController : MonoBehaviour
             brainRef.m_DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Style.Cut, 0f);
         }
 
-        ShowCamera(0);
+        // 显示 UI
+        ShowUI();
 
-        if (Random.value < signalLostChance)
-            StartCoroutine(SignalLostCoroutine());
+        if (currentMode == MonitorMode.Camera)
+        {
+            ShowCamera(0);
+
+            if (Random.value < signalLostChance)
+                StartCoroutine(SignalLostCoroutine());
+        }
     }
 
     private void CloseMonitor()
@@ -131,7 +159,13 @@ public class MonitorController : MonoBehaviour
         AudioManager.Instance.Play(SFX.MonitorClose);
 
         // 隐藏所有监控相机
-        HideAllCameras();
+        if (currentMode == MonitorMode.Camera)
+        {
+            HideAllCameras();
+        }
+
+        // 隐藏 UI
+        HideUI();
 
         // 恢复玩家视觉遮罩
         SetVisionMaskEnabled(true);
@@ -277,6 +311,35 @@ public class MonitorController : MonoBehaviour
         if (monitorCameraRoot != null)
             Destroy(monitorCameraRoot);
         monitorCameras.Clear();
+    }
+
+    private void ShowUI()
+    {
+        if (monitorUIPrefab == null) return;
+
+        if (monitorUIInstance == null)
+        {
+            monitorUIInstance = Instantiate(monitorUIPrefab);
+        }
+
+        monitorUIInstance.Show();
+    }
+
+    private void HideUI()
+    {
+        if (monitorUIInstance != null)
+        {
+            monitorUIInstance.Hide();
+        }
+    }
+
+    private void CleanupUI()
+    {
+        if (monitorUIInstance != null)
+        {
+            Destroy(monitorUIInstance.gameObject);
+            monitorUIInstance = null;
+        }
     }
 
     private IEnumerator SignalLostCoroutine()
