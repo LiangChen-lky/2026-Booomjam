@@ -20,7 +20,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &283264373638252471
 Transform:
   m_ObjectHideFlags: 0
@@ -140,6 +140,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dc4834fd15f24c4ab649e6656603c1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyVisual: {fileID: 0}
+  emptyBagHintText: "\u8FD9\u4E2A\u65C5\u884C\u888B\u662F\u7A7A\u7684"
 --- !u!114 &2533684907505248011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2703,7 +2705,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &6354319403341379353
 Transform:
   m_ObjectHideFlags: 0
@@ -2823,6 +2825,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dc4834fd15f24c4ab649e6656603c1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyVisual: {fileID: 0}
+  emptyBagHintText: "\u8FD9\u4E2A\u65C5\u884C\u888B\u662F\u7A7A\u7684"
 --- !u!114 &4402934483745806909
 MonoBehaviour:
   m_ObjectHideFlags: 0

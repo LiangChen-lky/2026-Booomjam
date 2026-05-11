@@ -8,7 +8,7 @@ public class MainDoor : MonoBehaviour
 {
     [SerializeField] private SpriteRenderer doorSprite;
     [SerializeField, Range(0f, 1f)] private float unlockedAlpha = 0.5f;
-    [SerializeField, Min(1)] private int requiredKeys = 3;
+    [SerializeField, Min(1)] private int requiredKeys = KeyGameConfig.DefaultKeyCount;
     [SerializeField] private string missingKeysMessage = "钥匙不够，无法打开大门";
 
     private bool isUnlocked = false;
@@ -47,7 +47,7 @@ public class MainDoor : MonoBehaviour
     private bool HasEnoughKeys(PlayerController player)
     {
         var keyManager = FindObjectOfType<KeyManager>();
-        int targetKeyCount = keyManager != null ? keyManager.totalKeys : requiredKeys;
+        int targetKeyCount = keyManager != null ? keyManager.TotalKeys : requiredKeys;
 
         return (player != null && player.CurrentKey >= targetKeyCount)
             || (keyManager != null && keyManager.HasAllKeys());

@@ -1573,7 +1573,7 @@ Transform:
   m_GameObject: {fileID: 363296328}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 14.14, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2207,6 +2207,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dc4834fd15f24c4ab649e6656603c1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyVisual: {fileID: 0}
+  bagRenderer: {fileID: 0}
+  closedSprite: {fileID: 0}
+  openedSprite: {fileID: 0}
+  emptyBagHintText: "\u8FD9\u4E2A\u65C5\u884C\u888B\u662F\u7A7A\u7684"
 --- !u!58 &527250255
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -6391,6 +6396,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dc4834fd15f24c4ab649e6656603c1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyVisual: {fileID: 0}
+  bagRenderer: {fileID: 0}
+  closedSprite: {fileID: 0}
+  openedSprite: {fileID: 0}
+  emptyBagHintText: "\u8FD9\u4E2A\u65C5\u884C\u888B\u662F\u7A7A\u7684"
 --- !u!1 &1554310156
 GameObject:
   m_ObjectHideFlags: 0

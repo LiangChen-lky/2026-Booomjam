@@ -8,7 +8,7 @@ using TMPro; // 必须添加这个，因为你的 UI 是 TextMeshPro
 public class KeyManager : MonoBehaviour
 {
     public int keysCollected = 0;
-    public int totalKeys = 3;
+    public int totalKeys = KeyGameConfig.DefaultKeyCount;
 
     public TextMeshProUGUI keyText; // 类型改为 TextMeshProUGUI
 
@@ -44,4 +44,6 @@ public class KeyManager : MonoBehaviour
     {
         return keysCollected >= totalKeys;
     }
+
+    public int TotalKeys => totalKeys;
 }
