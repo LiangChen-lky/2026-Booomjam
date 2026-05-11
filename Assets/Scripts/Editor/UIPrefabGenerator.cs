@@ -171,6 +171,7 @@ public static class UIPrefabGenerator
     private static void CreatePauseMenuPrefab(GameObject settingsPanelPrefab)
     {
         var root = new GameObject("PauseMenu");
+        root.transform.localScale = Vector3.one;
         var rect = root.AddComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
@@ -226,9 +227,9 @@ public static class UIPrefabGenerator
         btnRect.anchoredPosition = new Vector2(0, 10);
         btnRect.sizeDelta = new Vector2(320, 240);
 
-        CreateImageButton(buttons.transform, "ResumeButton", LoadSprite("Assets/Sprites/ui/ui_pause_start.png"));
-        CreateImageButton(buttons.transform, "SettingsButton", LoadSprite("Assets/Sprites/ui/ui_pause_setup.png"));
-        CreateImageButton(buttons.transform, "QuitButton", LoadSprite("Assets/Sprites/ui/ui_pause_home.png"));
+        CreatePauseButton(buttons.transform, "ResumeButton", "继续游戏", LoadSprite("Assets/Sprites/ui/ui_pause_start.png"));
+        CreatePauseButton(buttons.transform, "SettingsButton", "设置", LoadSprite("Assets/Sprites/ui/ui_pause_setup.png"));
+        CreatePauseButton(buttons.transform, "QuitButton", "返回主菜单", LoadSprite("Assets/Sprites/ui/ui_pause_home.png"));
 
         var pauseMenu = root.AddComponent<PauseMenu>();
         var so = new SerializedObject(pauseMenu);
@@ -310,6 +311,41 @@ public static class UIPrefabGenerator
 
         var rect = go.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(240, 60);
+
+        return button;
+    }
+
+    private static Button CreatePauseButton(Transform parent, string name, string label, Sprite sprite)
+    {
+        var button = CreateImageButton(parent, name, sprite);
+        var buttonTransform = button.transform;
+
+        var bgObj = new GameObject("VisibleBackground");
+        bgObj.transform.SetParent(buttonTransform, false);
+        bgObj.transform.SetAsFirstSibling();
+        var bgImage = bgObj.AddComponent<Image>();
+        bgImage.color = new Color(0.12f, 0.12f, 0.12f, 0.85f);
+        bgImage.raycastTarget = false;
+        var bgRect = bgObj.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+
+        var labelObj = new GameObject("Label");
+        labelObj.transform.SetParent(buttonTransform, false);
+        var labelText = labelObj.AddComponent<Text>();
+        labelText.text = label;
+        labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        labelText.fontSize = 24;
+        labelText.color = Color.white;
+        labelText.alignment = TextAnchor.MiddleCenter;
+        labelText.raycastTarget = false;
+        var labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
 
         return button;
     }
