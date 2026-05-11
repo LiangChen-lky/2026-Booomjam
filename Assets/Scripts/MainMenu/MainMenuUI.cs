@@ -7,11 +7,13 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private Button startButton;
     [SerializeField] private Button settingsButton;
     [SerializeField] private Button exitButton;
+    [SerializeField] private GameObject settingsPanelPrefab;
 
     private GameObject settingsPanel;
 
-    void Awake()
+    private void Awake()
     {
+        ResolveReferences();
         startButton.onClick.AddListener(OnStartGame);
         settingsButton.onClick.AddListener(OnSettings);
         exitButton.onClick.AddListener(OnExitGame);
@@ -21,8 +23,9 @@ public class MainMenuUI : MonoBehaviour
         AddHoverSound(settingsButton);
         AddHoverSound(exitButton);
 
-        // 创建设置面板
-        CreateSettingsPanel();
+        EnsureSettingsPanel();
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
     }
 
     private void Start()
@@ -40,20 +43,28 @@ public class MainMenuUI : MonoBehaviour
         trigger.triggers.Add(hoverEntry);
     }
 
-    private void CreateSettingsPanel()
+    private void ResolveReferences()
     {
+        if (startButton == null) startButton = FindChildComponent<Button>("StartButton");
+        if (settingsButton == null) settingsButton = FindChildComponent<Button>("SettingsButton");
+        if (exitButton == null) exitButton = FindChildComponent<Button>("ExitButton");
+    }
+
+    private void EnsureSettingsPanel()
+    {
+        if (settingsPanel != null)
+            return;
+
+        var prefab = settingsPanelPrefab != null ? settingsPanelPrefab : LoadSettingsPanelPrefab();
+        if (prefab == null)
+            return;
+
         var canvas = FindMainMenuCanvas();
+        if (canvas == null)
+            return;
 
-        if (canvas == null) return;
-
-        settingsPanel = new GameObject("SettingsPanel");
-        settingsPanel.transform.SetParent(canvas.transform, false);
-        var settingsRect = settingsPanel.AddComponent<RectTransform>();
-        settingsRect.anchorMin = Vector2.zero;
-        settingsRect.anchorMax = Vector2.one;
-        settingsRect.sizeDelta = Vector2.zero;
-        var settingsMenu = settingsPanel.AddComponent<SettingsMenu>();
-        settingsMenu.Initialize(ReturnFromSettings);
+        settingsPanel = Instantiate(prefab, canvas.transform, false);
+        settingsPanel.name = "SettingsPanel";
         settingsPanel.SetActive(false);
     }
 
@@ -71,16 +82,50 @@ public class MainMenuUI : MonoBehaviour
         return null;
     }
 
-    void OnStartGame()
+    private T FindChildComponent<T>(string childName) where T : Component
+    {
+        var child = FindChildRecursive(transform, childName);
+        return child != null ? child.GetComponent<T>() : null;
+    }
+
+    private Transform FindChildRecursive(Transform root, string childName)
+    {
+        if (root.name == childName)
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            var found = FindChildRecursive(child, childName);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    private GameObject LoadSettingsPanelPrefab()
+    {
+#if UNITY_EDITOR
+        const string prefabPath = "Assets/Prefabs/UI/SettingsPanel.prefab";
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+#else
+        return null;
+#endif
+    }
+
+    private void OnStartGame()
     {
         AudioManager.Instance.Play(SFX.UIClick);
         AudioManager.Instance.PlayBGM(BGM.Exploration);
         SceneManager.LoadScene("SampleScene");
     }
 
-    void OnSettings()
+    private void OnSettings()
     {
         AudioManager.Instance.Play(SFX.UIClick);
+        if (settingsPanel == null)
+            EnsureSettingsPanel();
         if (settingsPanel != null)
             settingsPanel.SetActive(true);
     }
@@ -91,7 +136,7 @@ public class MainMenuUI : MonoBehaviour
             settingsPanel.SetActive(false);
     }
 
-    void OnExitGame()
+    private void OnExitGame()
     {
         AudioManager.Instance.Play(SFX.UIConfirmExit);
         Application.Quit();

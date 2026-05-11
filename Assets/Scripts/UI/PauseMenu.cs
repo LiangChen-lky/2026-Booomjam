@@ -7,6 +7,7 @@ public class PauseMenu : MonoBehaviour
     private static PauseMenu instance;
 
     [SerializeField] private string mainMenuSceneName = "MainMenu";
+    [SerializeField] private GameObject settingsPanelPrefab;
 
     private GameObject menuRoot;
     private GameObject settingsPanel;
@@ -23,8 +24,14 @@ public class PauseMenu : MonoBehaviour
         }
         instance = this;
         DontDestroyOnLoad(gameObject);
-        CreateUI();
-        menuRoot.SetActive(false);
+        ResolveUIReferences();
+        if (menuRoot == null)
+        {
+            CreateLegacyUI();
+        }
+        EnsureSettingsPanel();
+        if (menuRoot != null)
+            menuRoot.SetActive(false);
     }
 
     private void OnDestroy()
@@ -65,7 +72,19 @@ public class PauseMenu : MonoBehaviour
         }
     }
 
-    private void CreateUI()
+    private void ResolveUIReferences()
+    {
+        var canvas = FindChildRecursive(transform, "PauseCanvas");
+        if (canvas != null)
+        {
+            menuRoot = FindChildRecursive(canvas, "PauseMenuRoot")?.gameObject;
+        }
+
+        if (menuRoot == null)
+            menuRoot = FindChildRecursive(transform, "PauseMenuRoot")?.gameObject;
+    }
+
+    private void CreateLegacyUI()
     {
         var canvasObj = new GameObject("PauseCanvas");
         canvasObj.transform.SetParent(transform);
@@ -108,11 +127,50 @@ public class PauseMenu : MonoBehaviour
         CreateButton(menuRoot.transform, "SettingsButton", "设置", new Vector2(0, buttonY - buttonSpacing), OnSettings);
         CreateButton(menuRoot.transform, "QuitButton", "退出到主菜单", new Vector2(0, buttonY - buttonSpacing * 2), OnQuit);
 
-        settingsPanel = new GameObject("SettingsPanel");
-        settingsPanel.transform.SetParent(canvasObj.transform, false);
-        var settingsComponent = settingsPanel.AddComponent<SettingsMenu>();
-        settingsComponent.Initialize(ReturnFromSettings);
+    }
+
+    private void EnsureSettingsPanel()
+    {
+        if (settingsPanel != null)
+            return;
+
+        var prefab = settingsPanelPrefab != null ? settingsPanelPrefab : LoadSettingsPanelPrefab();
+        if (prefab == null)
+            return;
+
+        var canvas = GetComponentInChildren<Canvas>(true);
+        if (canvas == null)
+            return;
+
+        settingsPanel = Instantiate(prefab, canvas.transform, false);
+        settingsPanel.name = "SettingsPanel";
         settingsPanel.SetActive(false);
+    }
+
+    private Transform FindChildRecursive(Transform root, string childName)
+    {
+        if (root.name == childName)
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            var found = FindChildRecursive(child, childName);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    private GameObject LoadSettingsPanelPrefab()
+    {
+#if UNITY_EDITOR
+        const string prefabPath = "Assets/Prefabs/UI/SettingsPanel.prefab";
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+#else
+        return null;
+#endif
     }
 
     private void CreateButton(Transform parent, string name, string text, Vector2 position, UnityEngine.Events.UnityAction onClick)
@@ -153,10 +211,11 @@ public class PauseMenu : MonoBehaviour
     public static void Pause()
     {
         if (instance == null) return;
-        if (instance.settingsPanel.activeSelf) return;
+        if (instance.settingsPanel != null && instance.settingsPanel.activeSelf) return;
 
         instance.isPaused = true;
-        instance.menuRoot.SetActive(true);
+        if (instance.menuRoot != null)
+            instance.menuRoot.SetActive(true);
         Time.timeScale = 0f;
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
@@ -168,8 +227,10 @@ public class PauseMenu : MonoBehaviour
         if (instance == null) return;
 
         instance.isPaused = false;
-        instance.menuRoot.SetActive(false);
-        instance.settingsPanel.SetActive(false);
+        if (instance.menuRoot != null)
+            instance.menuRoot.SetActive(false);
+        if (instance.settingsPanel != null)
+            instance.settingsPanel.SetActive(false);
         Time.timeScale = 1f;
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.None;
@@ -194,21 +255,28 @@ public class PauseMenu : MonoBehaviour
 
     private void OnSettings()
     {
-        menuRoot.SetActive(false);
-        settingsPanel.SetActive(true);
+        if (menuRoot != null)
+            menuRoot.SetActive(false);
+        EnsureSettingsPanel();
+        if (settingsPanel != null)
+            settingsPanel.SetActive(true);
     }
 
     public void ReturnFromSettings()
     {
-        settingsPanel.SetActive(false);
-        menuRoot.SetActive(true);
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
+        if (menuRoot != null)
+            menuRoot.SetActive(true);
     }
 
     private void OnQuit()
     {
         isPaused = false;
-        menuRoot.SetActive(false);
-        settingsPanel.SetActive(false);
+        if (menuRoot != null)
+            menuRoot.SetActive(false);
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
         Time.timeScale = 1f;
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;

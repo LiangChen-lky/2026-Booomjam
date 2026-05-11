@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class MainMenuSetup
@@ -15,7 +16,40 @@ public class MainMenuSetup
         camera.backgroundColor = new Color(0.04f, 0.04f, 0.04f, 1f);
         camera.clearFlags = CameraClearFlags.SolidColor;
 
+        var mainMenuPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/MainMenu.prefab");
+        if (mainMenuPrefab != null)
+        {
+            var menuInstance = (GameObject)PrefabUtility.InstantiatePrefab(mainMenuPrefab);
+            SceneManager.MoveGameObjectToScene(menuInstance, scene);
+        }
+        else
+        {
+            CreateLegacyMainMenu(scene);
+        }
+
+        var eventSystemGO = new GameObject("EventSystem");
+        eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
+        eventSystemGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+
+        var audioManagerGO = new GameObject("[AudioManager]");
+        audioManagerGO.AddComponent<AudioManager>();
+
+        EditorSceneManager.SaveScene(scene, "Assets/Scenes/MainMenu.scene");
+
+        var buildScenes = new EditorBuildSettingsScene[]
+        {
+            new EditorBuildSettingsScene("Assets/Scenes/MainMenu.scene", true),
+            new EditorBuildSettingsScene("Assets/Scenes/SampleScene.scene", true)
+        };
+        EditorBuildSettings.scenes = buildScenes;
+
+        Debug.Log("MainMenu scene created and build settings updated!");
+    }
+
+    private static void CreateLegacyMainMenu(UnityEngine.SceneManagement.Scene scene)
+    {
         var canvasGO = new GameObject("Canvas");
+        SceneManager.MoveGameObjectToScene(canvasGO, scene);
         var canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
@@ -55,32 +89,15 @@ public class MainMenuSetup
         var settingsBtnGO = CreateButton(canvasGO.transform, "SettingsButton", "\u8bbe\u7f6e", new Vector2(0, -80));
         var exitBtnGO = CreateButton(canvasGO.transform, "ExitButton", "\u9000\u51fa\u6e38\u620f", new Vector2(0, -160));
 
-        var eventSystemGO = new GameObject("EventSystem");
-        eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
-        eventSystemGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-
         var menuUIGO = new GameObject("MainMenuUI");
+        SceneManager.MoveGameObjectToScene(menuUIGO, scene);
         var menuUI = menuUIGO.AddComponent<MainMenuUI>();
-
-        var audioManagerGO = new GameObject("[AudioManager]");
-        audioManagerGO.AddComponent<AudioManager>();
 
         var so = new SerializedObject(menuUI);
         so.FindProperty("startButton").objectReferenceValue = startBtnGO.GetComponent<Button>();
         so.FindProperty("settingsButton").objectReferenceValue = settingsBtnGO.GetComponent<Button>();
         so.FindProperty("exitButton").objectReferenceValue = exitBtnGO.GetComponent<Button>();
         so.ApplyModifiedPropertiesWithoutUndo();
-
-        EditorSceneManager.SaveScene(scene, "Assets/Scenes/MainMenu.scene");
-
-        var buildScenes = new EditorBuildSettingsScene[]
-        {
-            new EditorBuildSettingsScene("Assets/Scenes/MainMenu.scene", true),
-            new EditorBuildSettingsScene("Assets/Scenes/SampleScene.scene", true)
-        };
-        EditorBuildSettings.scenes = buildScenes;
-
-        Debug.Log("MainMenu scene created and build settings updated!");
     }
 
     private static GameObject CreateButton(Transform parent, string name, string text, Vector2 position)

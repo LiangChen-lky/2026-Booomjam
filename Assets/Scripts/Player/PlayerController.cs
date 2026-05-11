@@ -45,6 +45,9 @@ public class PlayerController : MonoBehaviour
     [field: Header("玩家数据")]
     [field: SerializeField] public PlayerInfo Data { get; private set; }
 
+    [Header("暂停菜单")]
+    [SerializeField] private PauseMenu pauseMenuPrefab;
+
     [Header("2D 平面修正")]
     [Tooltip("2D 游戏中玩家固定使用的 Z 值，避免启动时被放到错误深度导致看不见。")]
     [SerializeField] private float fixedWorldZ = 0f;
@@ -92,8 +95,11 @@ public class PlayerController : MonoBehaviour
         // 自动创建暂停菜单
         if (FindObjectOfType<PauseMenu>() == null)
         {
-            var pauseObj = new GameObject("[PauseMenu]");
-            pauseObj.AddComponent<PauseMenu>();
+            if (!TryCreatePauseMenuFromPrefab())
+            {
+                var pauseObj = new GameObject("[PauseMenu]");
+                pauseObj.AddComponent<PauseMenu>();
+            }
         }
     }
 
@@ -112,6 +118,22 @@ public class PlayerController : MonoBehaviour
     {
         Cursor.visible = true;
         RemoveInputActionCallbacks();
+    }
+
+    private bool TryCreatePauseMenuFromPrefab()
+    {
+        if (pauseMenuPrefab == null)
+        {
+#if UNITY_EDITOR
+            pauseMenuPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<PauseMenu>("Assets/Prefabs/UI/PauseMenu.prefab");
+#endif
+        }
+
+        if (pauseMenuPrefab == null)
+            return false;
+
+        Instantiate(pauseMenuPrefab.gameObject);
+        return true;
     }
 
     private void Update()
