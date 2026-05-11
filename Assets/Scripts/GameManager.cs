@@ -13,6 +13,8 @@ public class GameManager : MonoBehaviour
     [Header("游戏设置")]
     [SerializeField] private string mainMenuSceneName = "MainMenu";
     [SerializeField] private string gameSceneName = "SampleScene";
+    [SerializeField] private GameEndMenuUI victoryMenuPrefab;
+    [SerializeField] private GameEndMenuUI failureMenuPrefab;
     [SerializeField, Tooltip("Game Over 后延迟重启时间（秒）")]
     private float gameOverDelay = 3f;
     [SerializeField, Tooltip("逃脱成功后延迟返回主菜单时间（秒）")]
@@ -20,6 +22,7 @@ public class GameManager : MonoBehaviour
 
     private bool isGameOver = false;
     private bool isEscaped = false;
+    private GameEndMenuUI activeEndMenu;
 
     public bool IsGameOver => isGameOver;
     public bool IsEscaped => isEscaped;
@@ -56,8 +59,15 @@ public class GameManager : MonoBehaviour
         var player = FindObjectOfType<PlayerController>();
         if (player != null) player.Input.DisablePlayerMoveInput();
 
-        // 延迟重启
-        StartCoroutine(RestartAfterDelay());
+        if (!TryShowEndMenu(
+                failureMenuPrefab,
+                "Assets/Prefabs/UI/FailureMenu.prefab",
+                () => SceneManager.LoadScene(gameSceneName),
+                () => SceneManager.LoadScene(mainMenuSceneName)))
+        {
+            // 延迟重启
+            StartCoroutine(RestartAfterDelay());
+        }
     }
 
     /// <summary>
@@ -77,8 +87,15 @@ public class GameManager : MonoBehaviour
         var player = FindObjectOfType<PlayerController>();
         if (player != null) player.Input.DisablePlayerMoveInput();
 
-        // 延迟返回主菜单
-        StartCoroutine(ReturnToMenuAfterDelay());
+        if (!TryShowEndMenu(
+                victoryMenuPrefab,
+                "Assets/Prefabs/UI/VictoryMenu.prefab",
+                () => SceneManager.LoadScene(gameSceneName),
+                () => SceneManager.LoadScene(mainMenuSceneName)))
+        {
+            // 延迟返回主菜单
+            StartCoroutine(ReturnToMenuAfterDelay());
+        }
     }
 
     private IEnumerator RestartAfterDelay()
@@ -91,5 +108,43 @@ public class GameManager : MonoBehaviour
     {
         yield return new WaitForSeconds(escapeDelay);
         SceneManager.LoadScene(mainMenuSceneName);
+    }
+
+    private bool TryShowEndMenu(
+        GameEndMenuUI menuPrefab,
+        string prefabPath,
+        UnityEngine.Events.UnityAction onRetry,
+        UnityEngine.Events.UnityAction onMainMenu)
+    {
+        if (activeEndMenu != null)
+        {
+            return true;
+        }
+
+        if (menuPrefab == null)
+        {
+#if UNITY_EDITOR
+            menuPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameEndMenuUI>(prefabPath);
+#endif
+        }
+
+        if (menuPrefab != null)
+        {
+            activeEndMenu = Instantiate(menuPrefab.gameObject).GetComponent<GameEndMenuUI>();
+        }
+        else
+        {
+            var menuObject = new GameObject(prefabPath.Contains("Victory") ? "[VictoryMenu]" : "[FailureMenu]");
+            activeEndMenu = menuObject.AddComponent<GameEndMenuUI>();
+        }
+
+        if (activeEndMenu == null)
+        {
+            return false;
+        }
+
+        activeEndMenu.Configure(onRetry, onMainMenu);
+        activeEndMenu.Show();
+        return true;
     }
 }

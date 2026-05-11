@@ -9,6 +9,8 @@ public static class UIPrefabGenerator
     private const string SettingsPanelPath = PrefabFolder + "/SettingsPanel.prefab";
     private const string MainMenuPath = PrefabFolder + "/MainMenu.prefab";
     private const string PauseMenuPath = PrefabFolder + "/PauseMenu.prefab";
+    private const string VictoryMenuPath = PrefabFolder + "/VictoryMenu.prefab";
+    private const string FailureMenuPath = PrefabFolder + "/FailureMenu.prefab";
 
     [MenuItem("Tools/Generate UI Prefabs")]
     public static void GenerateAllPrefabs()
@@ -18,6 +20,8 @@ public static class UIPrefabGenerator
         var settingsPanelPrefab = CreateSettingsPanelPrefab();
         CreateMainMenuPrefab(settingsPanelPrefab);
         CreatePauseMenuPrefab(settingsPanelPrefab);
+        CreateVictoryMenuPrefab();
+        CreateFailureMenuPrefab();
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -39,6 +43,10 @@ public static class UIPrefabGenerator
 
     private static GameObject CreateSettingsPanelPrefab()
     {
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(SettingsPanelPath);
+        if (existing != null)
+            return existing;
+
         var root = new GameObject("SettingsPanel");
         var rect = root.AddComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
@@ -113,6 +121,10 @@ public static class UIPrefabGenerator
 
     private static void CreateMainMenuPrefab(GameObject settingsPanelPrefab)
     {
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(MainMenuPath);
+        if (existing != null)
+            return;
+
         var root = new GameObject("MainMenu");
         var rect = root.AddComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
@@ -170,6 +182,10 @@ public static class UIPrefabGenerator
 
     private static void CreatePauseMenuPrefab(GameObject settingsPanelPrefab)
     {
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PauseMenuPath);
+        if (existing != null)
+            return;
+
         var root = new GameObject("PauseMenu");
         root.transform.localScale = Vector3.one;
         var rect = root.AddComponent<RectTransform>();
@@ -239,14 +255,70 @@ public static class UIPrefabGenerator
         SavePrefab(root, PauseMenuPath);
     }
 
-    private static GameObject SavePrefab(GameObject root, string path)
+    private static void CreateVictoryMenuPrefab()
+    {
+        CreateGameEndMenuPrefab(
+            VictoryMenuPath,
+            "VictoryMenu",
+            "闯关成功",
+            "重新挑战",
+            new Color(0.1f, 0.55f, 0.45f, 0.9f));
+    }
+
+    private static void CreateFailureMenuPrefab()
+    {
+        CreateGameEndMenuPrefab(
+            FailureMenuPath,
+            "FailureMenu",
+            "挑战失败",
+            "重新开始",
+            new Color(0.55f, 0.1f, 0.1f, 0.9f));
+    }
+
+    private static void CreateGameEndMenuPrefab(string path, string rootName, string title, string retryLabel, Color titleColor)
     {
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (existing != null)
-        {
-            AssetDatabase.DeleteAsset(path);
-        }
+            return;
 
+        var root = new GameObject(rootName);
+        var rect = root.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        var canvas = root.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = short.MaxValue;
+        root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        root.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1920, 1080);
+        root.AddComponent<GraphicRaycaster>();
+
+        var menuRoot = new GameObject("GameEndMenuRoot");
+        menuRoot.transform.SetParent(root.transform, false);
+        var menuRect = menuRoot.AddComponent<RectTransform>();
+        menuRect.anchorMin = Vector2.zero;
+        menuRect.anchorMax = Vector2.one;
+        menuRect.offsetMin = Vector2.zero;
+        menuRect.offsetMax = Vector2.zero;
+
+        var bg = menuRoot.AddComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.78f);
+
+        var titleText = CreateText(menuRoot.transform, "Title", title, 52, titleColor, new Vector2(0f, 120f), new Vector2(600f, 80f));
+        titleText.alignment = TextAnchor.MiddleCenter;
+        titleText.fontStyle = FontStyle.Bold;
+
+        CreateButton(menuRoot.transform, "RetryButton", retryLabel, new Vector2(0f, -20f), new Vector2(260f, 54f));
+        CreateButton(menuRoot.transform, "MainMenuButton", "返回主菜单", new Vector2(0f, -90f), new Vector2(260f, 54f));
+
+        root.AddComponent<GameEndMenuUI>();
+        SavePrefab(root, path);
+    }
+
+    private static GameObject SavePrefab(GameObject root, string path)
+    {
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
         Object.DestroyImmediate(root);
         return prefab;
@@ -379,6 +451,7 @@ public static class UIPrefabGenerator
         txt.fontSize = 24;
         txt.color = Color.white;
         txt.alignment = TextAnchor.MiddleCenter;
+        txt.raycastTarget = false;
         var txtRect = txtObj.GetComponent<RectTransform>();
         txtRect.anchorMin = Vector2.zero;
         txtRect.anchorMax = Vector2.one;

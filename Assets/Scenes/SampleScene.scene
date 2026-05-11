@@ -1153,7 +1153,7 @@ RectTransform:
   m_GameObject: {fileID: 265573131}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2053367572}
@@ -2138,7 +2138,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 20.384598, y: 0.82998997, z: -10}
+  m_LocalPosition: {x: 75.1, y: 12, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7432,7 +7432,7 @@ Transform:
   m_GameObject: {fileID: 1706760275}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 16.09, y: 0.83, z: -10}
+  m_LocalPosition: {x: 75.1, y: 12, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -8198,6 +8198,7 @@ MonoBehaviour:
   <Data>k__BackingField:
     <MaxHealth>k__BackingField: 2
     <MaxKey>k__BackingField: 3
+  pauseMenuPrefab: {fileID: 0}
   fixedWorldZ: 0
   footstepInterval: 0.4
 --- !u!212 &1883391181
@@ -8264,7 +8265,7 @@ Transform:
   m_GameObject: {fileID: 1883391179}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 16.09, y: 0.83, z: 0}
+  m_LocalPosition: {x: 75.1, y: 12, z: 0}
   m_LocalScale: {x: 1.0311167, y: 1.016453, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
