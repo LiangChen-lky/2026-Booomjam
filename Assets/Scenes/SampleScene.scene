@@ -1754,7 +1754,6 @@ MonoBehaviour:
   signalLostOverlay: {fileID: 50721698}
   ui_monitoring_bg: {fileID: 0}
   ui_monitoring_rec: {fileID: 0}
-  cameraInfoText: {fileID: 0}
 --- !u!1 &306020132 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6539048879233454658, guid: f8c2d0c1c0801514d9a0962bd41d8005, type: 3}

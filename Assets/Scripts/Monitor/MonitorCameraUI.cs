@@ -1,26 +1,26 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 监控终端 UI 叠加层。
-/// 负责信号丢失遮罩和 Z/X 切换输入。
-/// 挂在场景中任意 GameObject 上即可。
+/// Monitor terminal overlay.
+/// Handles signal-loss overlay, image feed, and Z/X camera switching input.
 /// </summary>
 public class MonitorCameraUI : MonoBehaviour
 {
     private static Sprite fallbackWhiteSprite;
 
-    [SerializeField, Tooltip("信号丢失时的全屏遮罩（可选）")]
+    [SerializeField, Tooltip("Signal lost fullscreen overlay, optional.")]
     private Image signalLostOverlay;
 
-    [SerializeField, Tooltip("监控背景")]
+    [SerializeField, Tooltip("Monitor background overlay.")]
     private Image ui_monitoring_bg;
 
-    [SerializeField, Tooltip("录制红点指示器")]
+    [SerializeField, Tooltip("Recording red indicator.")]
     private Image ui_monitoring_rec;
 
-    [SerializeField, Tooltip("当前监控房间信息")]
-    private Text cameraInfoText;
+    [SerializeField, Tooltip("TMP text named RoomName in the monitor UI prefab.")]
+    private TMP_Text roomNameText;
 
     private Image cameraFeedImage;
     private CanvasGroup canvasGroup;
@@ -30,7 +30,7 @@ public class MonitorCameraUI : MonoBehaviour
         SetupCanvasGroup();
         SetupVisuals();
         SetupCameraFeedImage();
-        SetupCameraInfoText();
+        SetupRoomNameText();
         Hide();
         if (signalLostOverlay != null) signalLostOverlay.enabled = false;
     }
@@ -46,28 +46,22 @@ public class MonitorCameraUI : MonoBehaviour
             monitor.NextCamera();
     }
 
-    /// <summary>
-    /// 显示监控 UI 元素
-    /// </summary>
     public void Show()
     {
         SetVisible(true);
         if (cameraFeedImage != null) cameraFeedImage.enabled = cameraFeedImage.sprite != null;
         if (ui_monitoring_bg != null) ui_monitoring_bg.enabled = true;
         if (ui_monitoring_rec != null) ui_monitoring_rec.enabled = true;
-        if (cameraInfoText != null) cameraInfoText.enabled = true;
-        RefreshCameraInfo();
+        if (roomNameText != null) roomNameText.enabled = true;
+        RefreshRoomName();
     }
 
-    /// <summary>
-    /// 隐藏监控 UI 元素
-    /// </summary>
     public void Hide()
     {
         if (cameraFeedImage != null) cameraFeedImage.enabled = false;
         if (ui_monitoring_bg != null) ui_monitoring_bg.enabled = false;
         if (ui_monitoring_rec != null) ui_monitoring_rec.enabled = false;
-        if (cameraInfoText != null) cameraInfoText.enabled = false;
+        if (roomNameText != null) roomNameText.enabled = false;
         if (signalLostOverlay != null) signalLostOverlay.enabled = false;
         SetVisible(false);
     }
@@ -88,7 +82,7 @@ public class MonitorCameraUI : MonoBehaviour
         var monitor = MonitorController.Instance;
         if (monitor == null || !monitor.IsMonitorOpen) return;
 
-        RefreshCameraInfo();
+        RefreshRoomName();
     }
 
     private void SetupVisuals()
@@ -96,7 +90,6 @@ public class MonitorCameraUI : MonoBehaviour
         if (ui_monitoring_bg != null)
         {
             ui_monitoring_bg.sprite = EnsureSprite(ui_monitoring_bg.sprite);
-            // This image is full-screen in the prefab, so an opaque color hides the camera feed.
             ui_monitoring_bg.color = new Color(0f, 0f, 0f, 0.08f);
             ui_monitoring_bg.raycastTarget = false;
         }
@@ -166,50 +159,52 @@ public class MonitorCameraUI : MonoBehaviour
         cameraFeedImage.transform.SetAsFirstSibling();
     }
 
-    private void SetupCameraInfoText()
+    private void SetupRoomNameText()
     {
-        if (cameraInfoText == null)
-        {
-            var infoGo = new GameObject("cameraInfoText");
-            infoGo.transform.SetParent(transform, false);
-            cameraInfoText = infoGo.AddComponent<Text>();
-        }
-
-        if (cameraInfoText == null)
+        if (roomNameText != null)
             return;
 
-        var rt = cameraInfoText.rectTransform;
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
-        rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(24f, -24f);
-        rt.sizeDelta = new Vector2(300f, 48f);
-
-        cameraInfoText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        cameraInfoText.fontSize = 18;
-        cameraInfoText.color = Color.white;
-        cameraInfoText.alignment = TextAnchor.UpperLeft;
-        cameraInfoText.raycastTarget = false;
-        cameraInfoText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        cameraInfoText.verticalOverflow = VerticalWrapMode.Overflow;
+        var texts = GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            if (texts[i].name == "RoomName")
+            {
+                roomNameText = texts[i];
+                break;
+            }
+        }
     }
 
-    private void RefreshCameraInfo()
+    private void RefreshRoomName()
     {
-        if (cameraInfoText == null)
+        if (roomNameText == null)
             return;
 
         var monitor = MonitorController.Instance;
-        if (monitor == null || !monitor.IsMonitorOpen)
-        {
-            cameraInfoText.text = string.Empty;
-            return;
-        }
+        roomNameText.text = monitor != null && monitor.IsMonitorOpen
+            ? GetLocalizedRoomName(monitor.CurrentCameraRoomName)
+            : string.Empty;
+    }
 
-        string roomName = monitor.CurrentCameraRoomName;
-        int currentIndex = monitor.CurrentCameraIndex + 1;
-        int totalCount = monitor.CurrentCameraCount;
-        cameraInfoText.text = $"房间: {roomName}  {currentIndex}/{totalCount}";
+    private static string GetLocalizedRoomName(string roomName)
+    {
+        switch (roomName)
+        {
+            case "Classroom":
+                return "教室";
+            case "Corridor1":
+                return "走廊一";
+            case "Corridor2":
+                return "走廊二";
+            case "Dorm":
+                return "宿舍";
+            case "Hall":
+                return "大厅";
+            case "Toilet":
+                return "厕所";
+            default:
+                return roomName;
+        }
     }
 
     private static Sprite EnsureSprite(Sprite sprite)

@@ -27,6 +27,12 @@ public class CameraRoomManager : MonoBehaviour
     [SerializeField, Tooltip("Z position used when auto-aligning room cameras.")]
     private float roomCameraZ = -30f;
 
+    [Header("Room Key Hint")]
+    [SerializeField, Tooltip("Show how many uncollected keys are in a room when the player enters it.")]
+    private bool showRoomKeyHint = true;
+    [SerializeField]
+    private string roomKeyHintFormat = "这个房间里有 {0} 把钥匙";
+
     [Header("环境音映射")]
     [Tooltip("房间名到环境音的映射。未映射的房间不播放环境音。")]
     public RoomAmbientMapping[] ambientMappings;
@@ -140,6 +146,8 @@ public class CameraRoomManager : MonoBehaviour
         if (cameraMap == null)
             cameraMap = BuildCameraMap(roomCameras);
 
+        bool enteredNewRoom = currentRoom != newRoom;
+
         if (controlRoomCameraPriorities && cameraMap.ContainsKey(newRoom))
         {
             // 禁用所有房间相机
@@ -156,6 +164,54 @@ public class CameraRoomManager : MonoBehaviour
 
         // 切换环境音
         SwitchAmbientForRoom(newRoom);
+
+        if (enteredNewRoom)
+        {
+            ShowRoomKeyHint(newRoom);
+        }
+    }
+
+    public void SetRoomKeyHintEnabled(bool enabled)
+    {
+        showRoomKeyHint = enabled;
+    }
+
+    public void ToggleRoomKeyHint()
+    {
+        showRoomKeyHint = !showRoomKeyHint;
+    }
+
+    private void ShowRoomKeyHint(string roomName)
+    {
+        if (!showRoomKeyHint || string.IsNullOrEmpty(roomName))
+            return;
+
+        int keyCount = CountKeysInRoom(roomName);
+        string message = string.IsNullOrWhiteSpace(roomKeyHintFormat)
+            ? keyCount.ToString()
+            : string.Format(roomKeyHintFormat, keyCount);
+
+        ScreenHintPanel.Show(message);
+    }
+
+    private int CountKeysInRoom(string roomName)
+    {
+        int count = 0;
+        var bags = GetSceneTravelBags();
+
+        foreach (var bag in bags)
+        {
+            if (bag == null || bag.IsOpened || !bag.HasKey)
+                continue;
+
+            string bagRoom = FindRoomAtPosition(bag.transform.position);
+            if (bagRoom == roomName)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private void SwitchAmbientForRoom(string roomName)
@@ -253,5 +309,27 @@ public class CameraRoomManager : MonoBehaviour
         }
 
         return roomBounds.ToArray();
+    }
+
+    private static TravelBag[] GetSceneTravelBags()
+    {
+        var bags = new List<TravelBag>();
+
+        for (int sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
+        {
+            var scene = SceneManager.GetSceneAt(sceneIndex);
+            if (!scene.isLoaded)
+                continue;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root == null)
+                    continue;
+
+                bags.AddRange(root.GetComponentsInChildren<TravelBag>(true));
+            }
+        }
+
+        return bags.ToArray();
     }
 }
