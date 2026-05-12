@@ -1,6 +1,7 @@
 using UnityEngine;
 using Cinemachine;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class CameraRoomManager : MonoBehaviour
 {
@@ -13,6 +14,18 @@ public class CameraRoomManager : MonoBehaviour
 
     public RoomCamera[] roomCameras;
     public string currentRoom;
+
+    [Header("Startup Camera Control")]
+    [SerializeField, Tooltip("Switch to the room camera that contains the player when the scene starts. Leave off when the player should keep using the normal follow camera.")]
+    private bool switchToPlayerRoomOnStart = false;
+    [SerializeField, Tooltip("Let this manager raise/lower Cinemachine room camera priorities. Leave off when the player should keep using the normal follow camera.")]
+    private bool controlRoomCameraPriorities = false;
+
+    [Header("Room Camera Auto Setup")]
+    [SerializeField, Tooltip("Automatically place configured room cameras at matching RoomBounds centers and clear Follow/LookAt.")]
+    private bool autoAlignRoomCamerasToBounds = true;
+    [SerializeField, Tooltip("Z position used when auto-aligning room cameras.")]
+    private float roomCameraZ = -30f;
 
     [Header("环境音映射")]
     [Tooltip("房间名到环境音的映射。未映射的房间不播放环境音。")]
@@ -29,51 +42,126 @@ public class CameraRoomManager : MonoBehaviour
 
     private void Start()
     {
-        cameraMap = new Dictionary<string, CinemachineVirtualCamera>();
-        if (roomCameras != null)
-        {
-            foreach (var rc in roomCameras)
-            {
-                if (rc.vcam != null)
-                {
-                    cameraMap[rc.roomName] = rc.vcam;
-                    // Debug.Log($"[CameraRoom] 注册房间相机: {rc.roomName}, Priority={rc.vcam.Priority}");
-                }
-            }
-        }
+        cameraMap = BuildCameraMap(roomCameras);
+        Debug.Log($"[CameraRoomManager] Start 时注册了 {cameraMap.Count} 个房间相机。");
 
         // Debug.Log($"[CameraRoom] 共 {cameraMap.Count} 个房间相机");
 
-        // 根据玩家位置设置初始房间
+        if (switchToPlayerRoomOnStart)
+            SwitchToPlayerRoomAtStart();
+    }
+
+    private void SwitchToPlayerRoomAtStart()
+    {
         var player = GameObject.FindWithTag("Player");
-        if (player != null)
+        if (player == null)
+            return;
+
+        string initRoom = FindRoomAtPosition(player.transform.position);
+        if (!string.IsNullOrEmpty(initRoom))
+            SwitchRoom(initRoom);
+    }
+
+    public RoomCamera[] GetValidRoomCameras()
+    {
+        AlignRoomCamerasToBoundsIfNeeded();
+
+        if (roomCameras == null || roomCameras.Length == 0)
         {
-            string initRoom = FindRoomAtPosition(player.transform.position);
-            // Debug.Log($"[CameraRoom] 玩家位置={player.transform.position}, 初始房间={initRoom}");
-            if (!string.IsNullOrEmpty(initRoom))
-                SwitchRoom(initRoom);
+            Debug.Log("[CameraRoomManager] roomCameras 为空。");
+            return new RoomCamera[0];
         }
-        else
+
+        var validRoomCameras = new List<RoomCamera>();
+        foreach (var roomCamera in roomCameras)
         {
-            // Debug.LogWarning("[CameraRoom] 找不到 Player");
+            if (roomCamera == null)
+                continue;
+
+            if (string.IsNullOrEmpty(roomCamera.roomName))
+                continue;
+
+            if (roomCamera.vcam == null)
+                continue;
+
+            validRoomCameras.Add(roomCamera);
+        }
+
+        Debug.Log($"[CameraRoomManager] 有效 roomCameras 数量: {validRoomCameras.Count} / {roomCameras.Length}");
+        return validRoomCameras.ToArray();
+    }
+
+    public void AlignRoomCamerasToBoundsIfNeeded()
+    {
+        if (!autoAlignRoomCamerasToBounds)
+            return;
+
+        AlignRoomCamerasToBounds();
+    }
+
+    public void AlignRoomCamerasToBounds()
+    {
+        if (roomCameras == null || roomCameras.Length == 0)
+            return;
+
+        var boundsByRoom = BuildRoomBoundsMap();
+        if (boundsByRoom.Count == 0)
+        {
+            Debug.Log("[CameraRoomManager] No RoomBounds found while aligning room cameras.");
+            return;
+        }
+
+        foreach (var roomCamera in roomCameras)
+        {
+            if (roomCamera == null || roomCamera.vcam == null || string.IsNullOrEmpty(roomCamera.roomName))
+                continue;
+
+            if (!boundsByRoom.TryGetValue(roomCamera.roomName, out var boundary) || boundary == null)
+            {
+                Debug.LogWarning($"[CameraRoomManager] Room camera '{roomCamera.roomName}' has no matching RoomBounds_{roomCamera.roomName}.");
+                continue;
+            }
+
+            var vcam = roomCamera.vcam;
+            Vector2 center = boundary.bounds.center;
+            vcam.transform.position = new Vector3(center.x, center.y, roomCameraZ);
+            vcam.m_Follow = null;
+            vcam.m_LookAt = null;
+            vcam.Priority = 0;
+
+            var confiner = vcam.GetComponent<CinemachineConfiner2D>();
+            if (confiner == null)
+                confiner = vcam.gameObject.AddComponent<CinemachineConfiner2D>();
+
+            confiner.m_BoundingShape2D = boundary;
+            confiner.m_Damping = 0f;
+            confiner.m_MaxWindowSize = 0;
+            confiner.InvalidateCache();
+
+            Debug.Log($"[CameraRoomManager] Aligned room camera {vcam.name}: room={roomCamera.roomName}, pos={vcam.transform.position}, follow={(vcam.Follow != null ? vcam.Follow.name : "null")}, lookAt={(vcam.LookAt != null ? vcam.LookAt.name : "null")}");
         }
     }
 
     public void SwitchRoom(string newRoom)
     {
-        if (string.IsNullOrEmpty(newRoom) || newRoom == currentRoom) return;
-        if (cameraMap == null || !cameraMap.ContainsKey(newRoom)) return;
+        if (string.IsNullOrEmpty(newRoom)) return;
+        if (cameraMap == null)
+            cameraMap = BuildCameraMap(roomCameras);
 
         // Debug.Log($"[CameraRoom] 切换: {currentRoom} → {newRoom}");
 
-        // 禁用所有房间相机
-        foreach (var kvp in cameraMap)
+        if (controlRoomCameraPriorities && cameraMap.ContainsKey(newRoom))
         {
-            kvp.Value.Priority = 0;
+            // 禁用所有房间相机
+            foreach (var kvp in cameraMap)
+            {
+                kvp.Value.Priority = 0;
+            }
+
+            // 激活目标房间相机
+            cameraMap[newRoom].Priority = 100;
         }
 
-        // 激活目标房间相机
-        cameraMap[newRoom].Priority = 100;
         currentRoom = newRoom;
 
         // 切换环境音
@@ -96,14 +184,92 @@ public class CameraRoomManager : MonoBehaviour
 
     public string FindRoomAtPosition(Vector2 worldPos)
     {
-        // 用场景中的 RoomBounds_Xxx 检测
-        var roomBounds = FindObjectsOfType<PolygonCollider2D>();
+        // 用场景中的 RoomBounds_Xxx 检测，包括失活对象
+        var roomBounds = GetSceneRoomBounds();
+        Debug.Log($"[CameraRoomManager] FindRoomAtPosition 扫描到 {roomBounds.Length} 个 RoomBounds。");
         foreach (var col in roomBounds)
         {
-            if (!col.name.StartsWith("RoomBounds_")) continue;
+            Debug.Log($"[CameraRoomManager] 检查 {col.name} active={col.gameObject.activeInHierarchy} scene={col.gameObject.scene.name}");
             if (col.OverlapPoint(worldPos))
+            {
+                Debug.Log($"[CameraRoomManager] 命中房间 {col.name}。");
                 return col.name.Replace("RoomBounds_", "");
+            }
         }
         return null;
+    }
+
+    private Dictionary<string, CinemachineVirtualCamera> BuildCameraMap(RoomCamera[] cameras)
+    {
+        var map = new Dictionary<string, CinemachineVirtualCamera>();
+        if (cameras == null)
+            return map;
+
+        foreach (var roomCamera in cameras)
+        {
+            if (roomCamera == null)
+                continue;
+
+            if (string.IsNullOrEmpty(roomCamera.roomName))
+                continue;
+
+            if (roomCamera.vcam == null)
+                continue;
+
+            map[roomCamera.roomName] = roomCamera.vcam;
+            // Debug.Log($"[CameraRoom] 注册房间相机: {roomCamera.roomName}, Priority={roomCamera.vcam.Priority}");
+        }
+
+        return map;
+    }
+
+    private static Dictionary<string, PolygonCollider2D> BuildRoomBoundsMap()
+    {
+        var map = new Dictionary<string, PolygonCollider2D>();
+        var roomBounds = GetSceneRoomBounds();
+        foreach (var col in roomBounds)
+        {
+            if (col == null)
+                continue;
+
+            string roomName = col.name.Replace("RoomBounds_", "");
+            map[roomName] = col;
+        }
+
+        return map;
+    }
+
+    private static PolygonCollider2D[] GetSceneRoomBounds()
+    {
+        var roomBounds = new List<PolygonCollider2D>();
+
+        for (int sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
+        {
+            var scene = SceneManager.GetSceneAt(sceneIndex);
+            if (!scene.isLoaded)
+                continue;
+
+            Debug.Log($"[CameraRoomManager] 扫描场景: {scene.name}");
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root == null)
+                    continue;
+
+                var colliders = root.GetComponentsInChildren<PolygonCollider2D>(true);
+                foreach (var col in colliders)
+                {
+                    if (col == null)
+                        continue;
+
+                    if (!col.name.StartsWith("RoomBounds_"))
+                        continue;
+
+                    Debug.Log($"[CameraRoomManager] 找到边界 {col.name} active={col.gameObject.activeInHierarchy}");
+                    roomBounds.Add(col);
+                }
+            }
+        }
+
+        return roomBounds.ToArray();
     }
 }

@@ -2,68 +2,79 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Cinemachine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
-/// 监控终端组件。按 R 键全局开关监控，按 Z/X 切换房间视角。
-/// 自动根据 RoomBounds 碰撞体生成俯视相机，不依赖 CameraRoomManager.roomCameras。
-/// 挂在场景中任意 GameObject 上即可。
+/// Monitor terminal controller. Press R to toggle monitor mode and Z/X to cycle rooms.
+/// Uses CameraRoomManager room bindings first, then falls back to RoomBounds_* data.
 /// </summary>
 public class MonitorController : MonoBehaviour
 {
     public static MonitorController Instance { get; private set; }
 
-    /// <summary>
-    /// 监控模式枚举
-    /// </summary>
     public enum MonitorMode
     {
-        Camera,  // 相机模式：使用 Cinemachine 虚拟相机
-        Image    // 图片模式：使用预渲染图片
+        Camera,
+        Image
     }
 
-    [Header("监控设置")]
-    [SerializeField, Tooltip("监控相机高度（俯视距离）")]
-    private float cameraHeight = 30f;
-    [SerializeField, Tooltip("监控相机正交大小")]
-    private float cameraOrthoSize = 12f;
-    [SerializeField, Tooltip("监控使用后冷却时间（秒）")]
-    private float cooldownDuration = 5f;
-    [SerializeField, Tooltip("信号丢失概率（0-1）")]
-    private float signalLostChance = 0.1f;
-    [SerializeField, Tooltip("信号恢复时间（秒）")]
-    private float signalRecoverTime = 3f;
-    [SerializeField, Tooltip("监控模式下的相机 Priority")]
-    private int monitorPriority = 200;
-    [SerializeField, Tooltip("当前监控模式")]
-    private MonitorMode currentMode = MonitorMode.Camera;
-
-    [Header("UI 设置")]
-    [SerializeField, Tooltip("监控 UI 预制件")]
-    private MonitorCameraUI monitorUIPrefab;
-    private MonitorCameraUI monitorUIInstance;
-
-    private struct MonitorCam
+    [System.Serializable]
+    private class MonitorImageFeed
     {
         public string roomName;
-        public CinemachineVirtualCamera vcam;
+        public Sprite image;
+        public string imagePath;
+        public bool enabled = true;
     }
 
-    private List<MonitorCam> monitorCameras = new List<MonitorCam>();
-    private int currentCameraIndex = 0;
-    private bool isMonitorOpen = false;
-    private bool isOnCooldown = false;
-    private bool isSignalLost = false;
+    [Header("Monitor Settings")]
+    [SerializeField] private float cameraHeight = 30f;
+    [SerializeField] private float cameraOrthoSize = 12f;
+    [SerializeField] private float cooldownDuration = 5f;
+    [SerializeField] private float signalLostChance = 0.1f;
+    [SerializeField] private float signalRecoverTime = 3f;
+    [SerializeField] private MonitorMode currentMode = MonitorMode.Camera;
+
+    [Header("Image Feeds")]
+    [SerializeField] private bool preferImageFeeds = true;
+    [SerializeField] private MonitorImageFeed[] imageFeeds = new MonitorImageFeed[0];
+
+    [Header("UI")]
+    [SerializeField] private MonitorCameraUI monitorUIPrefab;
+    private MonitorCameraUI monitorUIInstance;
+
+    private struct MonitorView
+    {
+        public string roomName;
+        public Vector3 position;
+        public Quaternion rotation;
+        public bool orthographic;
+        public float orthographicSize;
+        public float fieldOfView;
+        public Sprite image;
+        public bool usesImage;
+    }
+
+    private readonly List<MonitorView> monitorViews = new List<MonitorView>();
+    private int currentCameraIndex;
+    private bool isMonitorOpen;
+    private bool isOnCooldown;
+    private bool isSignalLost;
     private float lastCloseTime = -999f;
     private string savedRoom;
     private PlayerController playerRef;
     private MonsterController monsterRef;
-    private GameObject monitorCameraRoot;
+    private Camera mainCamera;
+    private Camera monitorCamera;
+    private GameObject monitorCameraObject;
     private CinemachineBrain brainRef;
-    private CinemachineBlendDefinition savedBlend;
     private Coroutine restoreBlendCoroutine;
 
     public bool IsMonitorOpen => isMonitorOpen;
     public MonitorMode CurrentMode => currentMode;
+    public int CurrentCameraIndex => currentCameraIndex;
+    public int CurrentCameraCount => monitorViews.Count;
+    public string CurrentCameraRoomName => GetCameraRoomName(currentCameraIndex);
 
     private void Awake()
     {
@@ -72,20 +83,29 @@ public class MonitorController : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
     }
 
     private void OnDestroy()
     {
-        if (Instance == this) Instance = null;
-        CleanupCameras();
+        if (Instance == this)
+            Instance = null;
+
         CleanupUI();
+        CleanupMonitorCamera();
     }
 
     private void Update()
     {
-        if (!Input.GetKeyDown(KeyCode.R)) return;
+        if (!Input.GetKeyDown(KeyCode.R))
+            return;
 
+        ToggleMonitor();
+    }
+
+    public void ToggleMonitor()
+    {
         if (isMonitorOpen)
             CloseMonitor();
         else
@@ -97,59 +117,50 @@ public class MonitorController : MonoBehaviour
         if (isOnCooldown)
         {
             float remaining = cooldownDuration - (Time.unscaledTime - lastCloseTime);
-            Debug.Log($"[Monitor] 冷却中，剩余 {remaining:F1} 秒");
+            Debug.Log($"[MonitorController] Monitor cooling down: {remaining:F1}s remaining.");
             return;
         }
 
-        // 根据模式选择不同的初始化方式
-        if (currentMode == MonitorMode.Camera)
+        BuildViews();
+        if (monitorViews.Count == 0)
         {
-            BuildCameras();
+            Debug.LogWarning("[MonitorController] No monitor rooms available.");
+            return;
+        }
 
-            if (monitorCameras.Count == 0)
-            {
-                Debug.LogWarning("[MonitorController] 没有找到房间边界 (RoomBounds_XXX)");
-                return;
-            }
+        mainCamera = Camera.main;
+        if (mainCamera == null && HasCameraViews())
+        {
+            Debug.LogWarning("[MonitorController] Main Camera not found.");
+            return;
         }
 
         isMonitorOpen = true;
         AudioManager.Instance.Play(SFX.MonitorOpen);
 
-        // 保存当前房间
         var camRoomManager = FindObjectOfType<CameraRoomManager>();
         if (camRoomManager != null)
             savedRoom = camRoomManager.currentRoom;
 
-        // 暂停怪物
         monsterRef = FindObjectOfType<MonsterController>();
-        if (monsterRef != null) monsterRef.enabled = false;
+        if (monsterRef != null)
+            monsterRef.enabled = false;
 
-        // 禁用玩家
         playerRef = FindObjectOfType<PlayerController>();
-        if (playerRef != null) playerRef.Input.DisablePlayerMoveInput();
+        if (playerRef != null)
+            playerRef.Input.DisablePlayerMoveInput();
 
-        // 隐藏玩家视觉遮罩
         SetVisionMaskEnabled(false);
 
-        // 切换为瞬切模式
-        brainRef = Camera.main.GetComponent<CinemachineBrain>();
-        if (brainRef != null)
-        {
-            savedBlend = brainRef.m_DefaultBlend;
-            brainRef.m_DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Style.Cut, 0f);
-        }
+        brainRef = mainCamera != null ? mainCamera.GetComponent<CinemachineBrain>() : null;
 
-        // 显示 UI
         ShowUI();
 
-        if (currentMode == MonitorMode.Camera)
-        {
-            ShowCamera(0);
+        currentCameraIndex = 0;
+        ShowCamera(0);
 
-            if (Random.value < signalLostChance)
-                StartCoroutine(SignalLostCoroutine());
-        }
+        if (Random.value < signalLostChance)
+            StartCoroutine(SignalLostCoroutine());
     }
 
     private void CloseMonitor()
@@ -158,43 +169,24 @@ public class MonitorController : MonoBehaviour
         isSignalLost = false;
         AudioManager.Instance.Play(SFX.MonitorClose);
 
-        // 隐藏所有监控相机
-        if (currentMode == MonitorMode.Camera)
-        {
-            HideAllCameras();
-        }
-
-        // 隐藏 UI
         HideUI();
-
-        // 恢复玩家视觉遮罩
         SetVisionMaskEnabled(true);
+        DisableMonitorCamera();
 
-        // 关闭监控时强制瞬切回角色相机，避免沿用 monitor 的 blend 过渡
-        if (brainRef != null)
-        {
-            brainRef.m_DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Style.Cut, 0f);
-        }
-
-        // 恢复原来房间视角
         var camRoomManager = FindObjectOfType<CameraRoomManager>();
         if (camRoomManager != null && !string.IsNullOrEmpty(savedRoom))
             camRoomManager.SwitchRoom(savedRoom);
 
-        // 下一帧再恢复原本的混合模式，保证当前切换是瞬切
-        if (brainRef != null)
-        {
-            if (restoreBlendCoroutine != null)
-                StopCoroutine(restoreBlendCoroutine);
-            restoreBlendCoroutine = StartCoroutine(RestoreBlendNextFrame(savedBlend));
-        }
+        if (restoreBlendCoroutine != null)
+            StopCoroutine(restoreBlendCoroutine);
+        restoreBlendCoroutine = StartCoroutine(LogRestoredCameraNextFrame());
 
-        // 恢复怪物
-        if (monsterRef != null) monsterRef.enabled = true;
+        if (monsterRef != null)
+            monsterRef.enabled = true;
         monsterRef = null;
 
-        // 恢复玩家
-        if (playerRef != null) playerRef.Input.EnablePlayerMoveInput();
+        if (playerRef != null)
+            playerRef.Input.EnablePlayerMoveInput();
         playerRef = null;
 
         isOnCooldown = true;
@@ -202,136 +194,355 @@ public class MonitorController : MonoBehaviour
         StartCoroutine(CooldownCoroutine());
     }
 
-    private IEnumerator RestoreBlendNextFrame(CinemachineBlendDefinition blend)
-    {
-        yield return null;
-
-        if (brainRef != null)
-        {
-            brainRef.m_DefaultBlend = blend;
-        }
-
-        restoreBlendCoroutine = null;
-    }
-
     public void NextCamera()
     {
-        if (!isMonitorOpen || isSignalLost) return;
-        if (monitorCameras.Count == 0) return;
+        if (!isMonitorOpen || isSignalLost || monitorViews.Count == 0)
+            return;
 
-        currentCameraIndex = (currentCameraIndex + 1) % monitorCameras.Count;
+        currentCameraIndex = (currentCameraIndex + 1) % monitorViews.Count;
+        Debug.Log($"[MonitorController] NextCamera -> index={currentCameraIndex}, room={GetCameraRoomName(currentCameraIndex)}");
         ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
     }
 
     public void PrevCamera()
     {
-        if (!isMonitorOpen || isSignalLost) return;
-        if (monitorCameras.Count == 0) return;
+        if (!isMonitorOpen || isSignalLost || monitorViews.Count == 0)
+            return;
 
-        currentCameraIndex = (currentCameraIndex - 1 + monitorCameras.Count) % monitorCameras.Count;
+        currentCameraIndex = (currentCameraIndex - 1 + monitorViews.Count) % monitorViews.Count;
+        Debug.Log($"[MonitorController] PrevCamera -> index={currentCameraIndex}, room={GetCameraRoomName(currentCameraIndex)}");
         ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
     }
 
     private void ShowCamera(int index)
     {
-        for (int i = 0; i < monitorCameras.Count; i++)
+        if (index < 0 || index >= monitorViews.Count)
+            return;
+
+        var view = monitorViews[index];
+
+        if (view.usesImage)
         {
-            var cam = monitorCameras[i];
-            if (cam.vcam != null)
-                cam.vcam.Priority = (i == index) ? monitorPriority : 0;
+            DisableMonitorCamera();
+            if (monitorUIInstance != null)
+                monitorUIInstance.SetCameraFeed(view.image);
+
+            Debug.Log($"[MonitorController] ShowImage index={index}, room={view.roomName}, image={(view.image != null ? view.image.name : "null")}");
+            return;
         }
+
+        if (monitorUIInstance != null)
+            monitorUIInstance.SetCameraFeed(null);
+
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("[MonitorController] Cannot show camera view because Main Camera is missing.");
+            return;
+        }
+
+        CreateOrEnableMonitorCamera();
+        if (monitorCamera == null)
+            return;
+
+        monitorCamera.transform.SetPositionAndRotation(view.position, view.rotation);
+        monitorCamera.orthographic = view.orthographic;
+        if (view.orthographic)
+            monitorCamera.orthographicSize = view.orthographicSize;
+        else
+            monitorCamera.fieldOfView = view.fieldOfView;
+
+        Debug.Log($"[MonitorController] ShowCamera index={index}, room={view.roomName}, monitorCameraPos={monitorCamera.transform.position}, ortho={monitorCamera.orthographic}, orthoSize={monitorCamera.orthographicSize:F2}, depth={monitorCamera.depth:F1}");
+
+        if (gameObject.activeInHierarchy)
+            StartCoroutine(LogActiveCameraAfterFrame(index));
     }
 
-    private void HideAllCameras()
+    private void BuildViews()
     {
-        foreach (var cam in monitorCameras)
+        monitorViews.Clear();
+        Debug.Log("[MonitorController] Building monitor views...");
+
+        if ((preferImageFeeds || currentMode == MonitorMode.Image) && TryBuildViewsFromImageFeeds())
         {
-            if (cam.vcam != null)
-                cam.vcam.Priority = 0;
+            Debug.Log($"[MonitorController] Using configured image feeds, total={monitorViews.Count}.");
+            LogMonitorViewNames();
+            return;
         }
+
+        if (currentMode == MonitorMode.Image)
+        {
+            Debug.LogWarning("[MonitorController] Monitor is in Image mode but no image feeds are configured.");
+            return;
+        }
+
+        if (TryBuildViewsFromRoomManager())
+        {
+            Debug.Log($"[MonitorController] Using CameraRoomManager room bindings, total={monitorViews.Count}.");
+            LogMonitorViewNames();
+            return;
+        }
+
+        Debug.Log("[MonitorController] No usable CameraRoomManager room cameras, scanning RoomBounds instead.");
+        BuildViewsFromRoomBounds();
+        Debug.Log($"[MonitorController] Built {monitorViews.Count} fallback monitor views from RoomBounds.");
+        LogMonitorViewNames();
+    }
+
+    private bool TryBuildViewsFromImageFeeds()
+    {
+        if (imageFeeds == null || imageFeeds.Length == 0)
+            return false;
+
+        foreach (var feed in imageFeeds)
+        {
+            if (feed == null || !feed.enabled)
+                continue;
+
+            Sprite feedImage = feed.image != null ? feed.image : LoadSpriteFromPath(feed.imagePath);
+            if (feedImage == null)
+            {
+                Debug.LogWarning($"[MonitorController] Image feed '{feed.roomName}' has no sprite: {feed.imagePath}");
+                continue;
+            }
+
+            monitorViews.Add(new MonitorView
+            {
+                roomName = string.IsNullOrWhiteSpace(feed.roomName) ? feedImage.name : feed.roomName,
+                image = feedImage,
+                usesImage = true,
+                rotation = Quaternion.identity,
+                orthographic = true,
+                orthographicSize = cameraOrthoSize,
+                fieldOfView = 60f
+            });
+        }
+
+        return monitorViews.Count > 0;
+    }
+
+    private static Sprite LoadSpriteFromPath(string imagePath)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath))
+            return null;
+
+#if UNITY_EDITOR
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(imagePath);
+#else
+        return null;
+#endif
+    }
+
+    private bool TryBuildViewsFromRoomManager()
+    {
+        var camRoomManager = FindObjectOfType<CameraRoomManager>();
+        if (camRoomManager == null)
+        {
+            Debug.Log("[MonitorController] CameraRoomManager not found.");
+            return false;
+        }
+
+        var roomCameras = camRoomManager.GetValidRoomCameras();
+        if (roomCameras == null || roomCameras.Length == 0)
+        {
+            Debug.Log("[MonitorController] CameraRoomManager has no valid room cameras.");
+            return false;
+        }
+
+        foreach (var roomCamera in roomCameras)
+        {
+            if (roomCamera == null || roomCamera.vcam == null)
+                continue;
+
+            var vcam = roomCamera.vcam;
+            monitorViews.Add(new MonitorView
+            {
+                roomName = roomCamera.roomName,
+                position = vcam.transform.position,
+                rotation = vcam.transform.rotation,
+                orthographic = vcam.m_Lens.Orthographic,
+                orthographicSize = vcam.m_Lens.OrthographicSize,
+                fieldOfView = vcam.m_Lens.FieldOfView
+            });
+        }
+
+        monitorViews.Sort((a, b) => string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal));
+        return monitorViews.Count > 0;
+    }
+
+    private void BuildViewsFromRoomBounds()
+    {
+        var roomBounds = GetSceneRoomBounds();
+        foreach (var col in roomBounds)
+        {
+            string roomName = col.name.Replace("RoomBounds_", "");
+            Vector2 center = col.bounds.center;
+            monitorViews.Add(new MonitorView
+            {
+                roomName = roomName,
+                position = new Vector3(center.x, center.y, -cameraHeight),
+                rotation = Quaternion.identity,
+                orthographic = true,
+                orthographicSize = cameraOrthoSize,
+                fieldOfView = 60f
+            });
+        }
+
+        monitorViews.Sort((a, b) => string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal));
+    }
+
+    private static PolygonCollider2D[] GetSceneRoomBounds()
+    {
+        var roomBounds = new List<PolygonCollider2D>();
+
+        for (int sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
+        {
+            var scene = SceneManager.GetSceneAt(sceneIndex);
+            if (!scene.isLoaded)
+                continue;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root == null)
+                    continue;
+
+                var colliders = root.GetComponentsInChildren<PolygonCollider2D>(true);
+                foreach (var col in colliders)
+                {
+                    if (col == null || !col.name.StartsWith("RoomBounds_"))
+                        continue;
+
+                    roomBounds.Add(col);
+                }
+            }
+        }
+
+        return roomBounds.ToArray();
+    }
+
+    private bool HasCameraViews()
+    {
+        for (int i = 0; i < monitorViews.Count; i++)
+        {
+            if (!monitorViews[i].usesImage)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void CreateOrEnableMonitorCamera()
+    {
+        if (monitorCameraObject == null)
+        {
+            monitorCameraObject = new GameObject("[MonitorViewCamera]");
+            monitorCamera = monitorCameraObject.AddComponent<Camera>();
+        }
+        else if (monitorCamera == null)
+        {
+            monitorCamera = monitorCameraObject.GetComponent<Camera>();
+            if (monitorCamera == null)
+                monitorCamera = monitorCameraObject.AddComponent<Camera>();
+        }
+
+        monitorCamera.CopyFrom(mainCamera);
+        monitorCamera.depth = mainCamera.depth + 100f;
+        monitorCamera.targetTexture = null;
+        monitorCamera.enabled = true;
+        monitorCameraObject.SetActive(true);
+
+        Debug.Log($"[MonitorController] Monitor camera enabled. mainDepth={mainCamera.depth:F1}, monitorDepth={monitorCamera.depth:F1}, cullingMask={monitorCamera.cullingMask}");
+    }
+
+    private void DisableMonitorCamera()
+    {
+        if (monitorCamera != null)
+            monitorCamera.enabled = false;
+
+        if (monitorCameraObject != null)
+            monitorCameraObject.SetActive(false);
+    }
+
+    private void CleanupMonitorCamera()
+    {
+        if (monitorCameraObject == null)
+            return;
+
+        Destroy(monitorCameraObject);
+        monitorCameraObject = null;
+        monitorCamera = null;
     }
 
     private void SetVisionMaskEnabled(bool enabled)
     {
         var mask = FindObjectOfType<PlayerVisionMaskSystem>();
-        if (mask == null) return;
+        if (mask == null)
+            return;
 
         mask.SetForceHidden(!enabled);
     }
 
-    private void BuildCameras()
+    private void LogMonitorViewNames()
     {
-        // 每次打开时清理重建，确保和场景同步
-        CleanupCameras();
-
-        monitorCameraRoot = new GameObject("[MonitorCameras]");
-
-        // 找到场景中所有 RoomBounds_XXX
-        var roomBounds = FindObjectsOfType<PolygonCollider2D>();
-        foreach (var col in roomBounds)
+        for (int i = 0; i < monitorViews.Count; i++)
         {
-            if (!col.name.StartsWith("RoomBounds_")) continue;
-
-            string roomName = col.name.Replace("RoomBounds_", "");
-            Vector2 center = col.bounds.center;
-            Vector2 size = col.bounds.size;
-
-            // 创建 CinemachineVirtualCamera
-            var camGo = new GameObject($"MonitorCam_{roomName}");
-            camGo.transform.SetParent(monitorCameraRoot.transform);
-            camGo.transform.position = new Vector3(center.x, center.y, -cameraHeight);
-
-            var vcam = camGo.AddComponent<CinemachineVirtualCamera>();
-            vcam.Priority = 0;
-            vcam.m_Lens.OrthographicSize = cameraOrthoSize;
-            vcam.m_Lens.Orthographic = true;
-
-            // 添加 Confiner2D 限制在房间边界内
-            var confiner = camGo.AddComponent<CinemachineConfiner2D>();
-            confiner.m_BoundingShape2D = col;
-            confiner.m_Damping = 0f;
-            confiner.m_MaxWindowSize = 0;
-            confiner.InvalidateCache();
-
-            monitorCameras.Add(new MonitorCam
-            {
-                roomName = roomName,
-                vcam = vcam
-            });
+            var view = monitorViews[i];
+            Debug.Log($"[MonitorController] View[{i}] room={view.roomName} pos={view.position}");
         }
-
-        // 按房间名排序，保证顺序一致
-        monitorCameras.Sort((a, b) => string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal));
     }
 
-    private void CleanupCameras()
+    private string GetCameraRoomName(int index)
     {
-        if (monitorCameraRoot != null)
-            Destroy(monitorCameraRoot);
-        monitorCameras.Clear();
+        if (index < 0 || index >= monitorViews.Count)
+            return "<out_of_range>";
+
+        return monitorViews[index].roomName;
+    }
+
+    private IEnumerator LogActiveCameraAfterFrame(int index)
+    {
+        yield return null;
+
+        string activeCameraName = brainRef != null && brainRef.ActiveVirtualCamera != null
+            ? brainRef.ActiveVirtualCamera.Name
+            : "<brain_disabled>";
+        string monitorCameraPos = monitorCamera != null
+            ? monitorCamera.transform.position.ToString("F2")
+            : "<no_monitor_camera>";
+
+        Debug.Log($"[MonitorController] AfterFrame index={index}, room={GetCameraRoomName(index)}, activeVirtualCamera={activeCameraName}, monitorCameraPos={monitorCameraPos}");
+    }
+
+    private IEnumerator LogRestoredCameraNextFrame()
+    {
+        yield return null;
+        restoreBlendCoroutine = null;
+
+        string activeCameraName = brainRef != null && brainRef.ActiveVirtualCamera != null
+            ? brainRef.ActiveVirtualCamera.Name
+            : "<brain_disabled>";
+        string mainCameraPos = mainCamera != null ? mainCamera.transform.position.ToString("F2") : "<no_camera>";
+
+        Debug.Log($"[MonitorController] Monitor closed. activeVirtualCamera={activeCameraName}, mainCameraPos={mainCameraPos}");
     }
 
     private void ShowUI()
     {
         if (monitorUIPrefab == null)
         {
-            Debug.LogWarning("[Monitor] monitorUIPrefab is null! Please assign it in Inspector.");
+            Debug.LogWarning("[MonitorController] monitorUIPrefab is null.");
             return;
         }
 
         if (monitorUIInstance == null)
         {
-            // 创建新的 Canvas 用于监控 UI
             var canvasGo = new GameObject("[MonitorCanvas]");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100; // 高于其他 UI
+            canvas.sortingOrder = 100;
             canvasGo.AddComponent<UnityEngine.UI.CanvasScaler>();
             canvasGo.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-
-            // 实例化并添加到新 Canvas 下
             monitorUIInstance = Instantiate(monitorUIPrefab, canvas.transform);
         }
 
@@ -341,18 +552,16 @@ public class MonitorController : MonoBehaviour
     private void HideUI()
     {
         if (monitorUIInstance != null)
-        {
             monitorUIInstance.Hide();
-        }
     }
 
     private void CleanupUI()
     {
-        if (monitorUIInstance != null)
-        {
-            Destroy(monitorUIInstance.gameObject);
-            monitorUIInstance = null;
-        }
+        if (monitorUIInstance == null)
+            return;
+
+        Destroy(monitorUIInstance.gameObject);
+        monitorUIInstance = null;
     }
 
     private IEnumerator SignalLostCoroutine()

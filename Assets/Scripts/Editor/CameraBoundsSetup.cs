@@ -637,7 +637,7 @@ public class CameraBoundsSetup : EditorWindow
     private void SetupCameraRoomManager()
     {
         // 1. 查找原始 Virtual Camera 作为模板
-        var templateVcam = FindObjectOfType<CinemachineVirtualCamera>();
+        var templateVcam = FindTemplateVirtualCamera();
         if (templateVcam == null)
         {
             EditorUtility.DisplayDialog("错误", "场景中未找到 VirtualCamera。", "确定");
@@ -674,6 +674,7 @@ public class CameraBoundsSetup : EditorWindow
         {
             string roomName = kvp.Key;
             PolygonCollider2D boundary = kvp.Value;
+            Vector2 center = boundary.bounds.center;
 
             string camName = $"VCam_{roomName}";
             var camGo = GameObject.Find(camName);
@@ -683,6 +684,7 @@ public class CameraBoundsSetup : EditorWindow
                 Undo.RegisterCreatedObjectUndo(camGo, $"Create {camName}");
             }
             camGo.transform.SetParent(roomCamerasParent.transform);
+            camGo.transform.position = new Vector3(center.x, center.y, -30f);
 
             // 复制模板相机的组件
             var vcam = camGo.GetComponent<CinemachineVirtualCamera>();
@@ -691,8 +693,9 @@ public class CameraBoundsSetup : EditorWindow
 
             // 配置 Virtual Camera
             vcam.m_Priority = 0; // 默认低优先级
-            vcam.m_Follow = templateVcam.m_Follow;
-            vcam.m_LookAt = templateVcam.m_LookAt;
+            // 监控镜头应是静态房间视角，不要继承主相机的跟随目标
+            vcam.m_Follow = null;
+            vcam.m_LookAt = null;
             vcam.m_Lens = templateVcam.m_Lens;
 
             // 添加 Confiner2D
@@ -730,10 +733,6 @@ public class CameraBoundsSetup : EditorWindow
             }
             originalConfiner.enabled = true;
         }
-
-        // 删除之前创建的房间相机
-        if (roomCamerasParent != null)
-            Undo.DestroyObjectImmediate(roomCamerasParent);
 
         // 5. 创建或更新 CameraRoomManager
         var managerObj = GameObject.Find("CameraRoomManager");
@@ -823,6 +822,33 @@ public class CameraBoundsSetup : EditorWindow
             $"每个房间有独立的 VirtualCamera + Confiner2D\n\n" +
             $"运行游戏测试。",
             "确定");
+    }
+
+    private static CinemachineVirtualCamera FindTemplateVirtualCamera()
+    {
+        var mainNamedCamera = GameObject.Find("Virtual Camera");
+        if (mainNamedCamera != null)
+        {
+            var vcam = mainNamedCamera.GetComponent<CinemachineVirtualCamera>();
+            if (vcam != null)
+                return vcam;
+        }
+
+        foreach (var vcam in FindObjectsOfType<CinemachineVirtualCamera>())
+        {
+            if (vcam == null)
+                continue;
+
+            if (vcam.name.StartsWith("VCam_"))
+                continue;
+
+            if (vcam.transform.parent != null && vcam.transform.parent.name == "RoomCameras")
+                continue;
+
+            return vcam;
+        }
+
+        return null;
     }
 
 }
