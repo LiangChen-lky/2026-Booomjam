@@ -94,6 +94,11 @@ public class StoryPanel : MonoBehaviour
 
     public static void Show(string text, PlayerController player)
     {
+        Show(text, player, SFX.UIPopupOpen);
+    }
+
+    public static void Show(string text, PlayerController player, SFX openSound)
+    {
         if (instance == null) return;
         instance.textComponent.text = text;
         instance.panelRoot.SetActive(true);
@@ -101,7 +106,7 @@ public class StoryPanel : MonoBehaviour
         instance.isShowing = true;
         instance.readyToClose = false;
         if (player != null) player.Input.DisablePlayerMoveInput();
-        AudioManager.Instance.Play(SFX.UIPopupOpen);
+        AudioManager.Instance.Play(openSound);
     }
 
     private void Hide()

@@ -755,9 +755,9 @@ MonoBehaviour:
   monitorController: {fileID: 0}
   autoFindMonitorController: 1
   cooldownMask: {fileID: 1837317730}
-  cooldownText: {fileID: 0}
   cooldownRoot: {fileID: 159471692}
   hideWhenReady: 1
+  maskColor: {r: 0, g: 0, b: 0, a: 0.6}
   defaultCooldownDuration: 5
 --- !u!114 &159471695
 MonoBehaviour:
@@ -1710,11 +1710,11 @@ MonoBehaviour:
   - roomName: Corridor1
     image: {fileID: 0}
     imagePath: "Assets/Sprites/\u573A\u666F/Corridor1.png"
-    enabled: 1
+    enabled: 0
   - roomName: Corridor2
     image: {fileID: 0}
     imagePath: "Assets/Sprites/\u573A\u666F/Corridor2.jpg"
-    enabled: 1
+    enabled: 0
   - roomName: Dorm
     image: {fileID: 0}
     imagePath: "Assets/Sprites/\u573A\u666F/Dorm.png"
@@ -1754,6 +1754,7 @@ MonoBehaviour:
   signalLostOverlay: {fileID: 50721698}
   ui_monitoring_bg: {fileID: 0}
   ui_monitoring_rec: {fileID: 0}
+  roomNameText: {fileID: 0}
 --- !u!1 &306020132 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6539048879233454658, guid: f8c2d0c1c0801514d9a0962bd41d8005, type: 3}
@@ -3645,6 +3646,10 @@ MonoBehaviour:
   controlRoomCameraPriorities: 0
   autoAlignRoomCamerasToBounds: 1
   roomCameraZ: -30
+  showRoomKeyHint: 1
+  roomKeyHintFormat: "\u8FD9\u4E2A\u623F\u95F4\u91CC\u6709 {0} \u628A\u94A5\u5319"
+  detectPlayerRoomForKeyHint: 1
+  roomKeyHintCheckInterval: 0.15
   ambientMappings:
   - roomName: Hall
     ambient: 1

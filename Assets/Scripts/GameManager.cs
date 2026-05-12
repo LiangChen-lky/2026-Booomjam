@@ -1,23 +1,31 @@
+using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Collections;
 
 /// <summary>
-/// 游戏状态管理：逃脱胜利、死亡重启。
-/// 通过静态 Instance 访问，场景中需存在一个挂载此脚本的 GameObject。
+/// Manages game state, including opening text, escape victory, death, and scene transitions.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    [Header("游戏设置")]
+    [Header("Game Settings")]
     [SerializeField] private string mainMenuSceneName = "MainMenu";
     [SerializeField] private string gameSceneName = "SampleScene";
     [SerializeField] private GameEndMenuUI victoryMenuPrefab;
     [SerializeField] private GameEndMenuUI failureMenuPrefab;
-    [SerializeField, Tooltip("Game Over 后延迟重启时间（秒）")]
+
+    [Header("Black Screen Text")]
+    [SerializeField] private bool showOpeningText = true;
+    [SerializeField, TextArea(3, 8)] private string openingText = "";
+    [SerializeField, TextArea(3, 8)] private string victoryText = "";
+    [SerializeField, TextArea(3, 8)] private string failureText = "";
+    [SerializeField] private string continueHint = "按任意键继续";
+
+    [SerializeField, Tooltip("Delay before restarting after game over if no end menu can be shown.")]
     private float gameOverDelay = 3f;
-    [SerializeField, Tooltip("逃脱成功后延迟返回主菜单时间（秒）")]
+    [SerializeField, Tooltip("Delay before returning to the main menu after escape if no end menu can be shown.")]
     private float escapeDelay = 5f;
 
     private bool isGameOver = false;
@@ -34,66 +42,120 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
+    }
+
+    private void Start()
+    {
+        if (showOpeningText)
+        {
+            ShowOpeningText();
+        }
     }
 
     private void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
-    /// <summary>
-    /// 玩家死亡时由 PlayerController 调用。
-    /// </summary>
     public void OnPlayerDeath()
     {
-        if (isGameOver || isEscaped) return;
+        if (isGameOver || isEscaped)
+        {
+            return;
+        }
+
         isGameOver = true;
 
-        // 停止 BGM，播放 Game Over 音效
         AudioManager.Instance.StopBGM();
         AudioManager.Instance.StopAmbient();
         AudioManager.Instance.Play(SFX.GameOver);
 
-        // 禁用玩家输入
         var player = FindObjectOfType<PlayerController>();
-        if (player != null) player.Input.DisablePlayerMoveInput();
+        if (player != null)
+        {
+            player.Input.DisablePlayerMoveInput();
+        }
 
+        ShowEndingText(failureText, ShowFailureMenuOrRestart);
+    }
+
+    public void OnPlayerEscape()
+    {
+        if (isGameOver || isEscaped)
+        {
+            return;
+        }
+
+        isEscaped = true;
+
+        AudioManager.Instance.StopBGM();
+        AudioManager.Instance.StopAmbient();
+        AudioManager.Instance.PlayBGM(BGM.EscapeSuccess);
+
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null)
+        {
+            player.Input.DisablePlayerMoveInput();
+        }
+
+        ShowEndingText(victoryText, ShowVictoryMenuOrReturn);
+    }
+
+    private void ShowOpeningText()
+    {
+        Time.timeScale = 0f;
+
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null)
+        {
+            player.Input.DisablePlayerMoveInput();
+        }
+
+        BlackScreenTextUI.Show(openingText, continueHint, () =>
+        {
+            Time.timeScale = 1f;
+
+            var currentPlayer = FindObjectOfType<PlayerController>();
+            if (currentPlayer != null && !isGameOver && !isEscaped)
+            {
+                currentPlayer.Input.EnablePlayerMoveInput();
+            }
+        });
+    }
+
+    private void ShowEndingText(string text, Action onContinue)
+    {
+        Time.timeScale = 0f;
+        BlackScreenTextUI.Show(text, continueHint, onContinue);
+    }
+
+    private void ShowFailureMenuOrRestart()
+    {
         if (!TryShowEndMenu(
                 failureMenuPrefab,
                 "Assets/Prefabs/UI/FailureMenu.prefab",
                 () => SceneManager.LoadScene(gameSceneName),
                 () => SceneManager.LoadScene(mainMenuSceneName)))
         {
-            // 延迟重启
+            Time.timeScale = 1f;
             StartCoroutine(RestartAfterDelay());
         }
     }
 
-    /// <summary>
-    /// 集齐钥匙后由 MainDoor 调用，触发逃脱。
-    /// </summary>
-    public void OnPlayerEscape()
+    private void ShowVictoryMenuOrReturn()
     {
-        if (isGameOver || isEscaped) return;
-        isEscaped = true;
-
-        // 停止探索 BGM，播放逃脱成功 BGM
-        AudioManager.Instance.StopBGM();
-        AudioManager.Instance.StopAmbient();
-        AudioManager.Instance.PlayBGM(BGM.EscapeSuccess);
-
-        // 禁用玩家输入
-        var player = FindObjectOfType<PlayerController>();
-        if (player != null) player.Input.DisablePlayerMoveInput();
-
         if (!TryShowEndMenu(
                 victoryMenuPrefab,
                 "Assets/Prefabs/UI/VictoryMenu.prefab",
                 () => SceneManager.LoadScene(gameSceneName),
                 () => SceneManager.LoadScene(mainMenuSceneName)))
         {
-            // 延迟返回主菜单
+            Time.timeScale = 1f;
             StartCoroutine(ReturnToMenuAfterDelay());
         }
     }

@@ -5,20 +5,30 @@ using UnityEngine;
 
 public static class AudioConfigSetup
 {
-    private const string AudioFolder = "Assets/Audios/01_成品音效_待交付";
+    private static readonly string[] AudioFolders =
+    {
+        "Assets/Audios/01_成品音效_待交付",
+        "Assets/Audios/补充音效"
+    };
+
     private const string OutputPath = "Assets/AudioConfig.asset";
 
     [MenuItem("Tools/Audio/Setup AudioConfig")]
     public static void Setup()
     {
-        var clips = LoadAllClips(AudioFolder);
+        var clips = LoadAllClips(AudioFolders);
         if (clips.Count == 0)
         {
-            Debug.LogError("[AudioConfigSetup] 未找到任何 AudioClip，请检查路径: " + AudioFolder);
+            Debug.LogError("[AudioConfigSetup] 未找到任何 AudioClip，请检查音频目录配置。");
             return;
         }
 
-        var config = ScriptableObject.CreateInstance<AudioConfig>();
+        var config = AssetDatabase.LoadAssetAtPath<AudioConfig>(OutputPath);
+        bool createAsset = config == null;
+        if (createAsset)
+        {
+            config = ScriptableObject.CreateInstance<AudioConfig>();
+        }
 
         config.bgmEntries = BuildBGMEntries(clips);
         config.ambientEntries = BuildAmbientEntries(clips);
@@ -28,21 +38,38 @@ public static class AudioConfigSetup
         if (!AssetDatabase.IsValidFolder(dir))
             Directory.CreateDirectory(dir);
 
-        AssetDatabase.DeleteAsset(OutputPath);
-        AssetDatabase.CreateAsset(config, OutputPath);
+        if (createAsset)
+            AssetDatabase.CreateAsset(config, OutputPath);
+        else
+            EditorUtility.SetDirty(config);
+
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        Debug.Log($"[AudioConfigSetup] 已创建 AudioConfig: {OutputPath}");
+        Debug.Log($"[AudioConfigSetup] 已{(createAsset ? "创建" : "更新")} AudioConfig: {OutputPath}");
         Debug.Log($"[AudioConfigSetup] BGM: {config.bgmEntries.Length}, 环境音: {config.ambientEntries.Length}, 音效: {config.sfxEntries.Length}");
         Selection.activeObject = config;
     }
 
-    private static Dictionary<string, AudioClip> LoadAllClips(string folder)
+    private static Dictionary<string, AudioClip> LoadAllClips(IEnumerable<string> folders)
     {
         var result = new Dictionary<string, AudioClip>();
+        foreach (var folder in folders)
+        {
+            LoadClipsFromFolder(folder, result);
+        }
+
+        return result;
+    }
+
+    private static void LoadClipsFromFolder(string folder, Dictionary<string, AudioClip> result)
+    {
         string absFolder = Path.GetFullPath(folder);
-        if (!Directory.Exists(absFolder)) return result;
+        if (!Directory.Exists(absFolder))
+        {
+            Debug.LogWarning("[AudioConfigSetup] 音频目录不存在，已跳过: " + folder);
+            return;
+        }
 
         foreach (var path in Directory.GetFiles(absFolder, "*.wav"))
         {
@@ -65,8 +92,6 @@ public static class AudioConfigSetup
             if (clip != null)
                 result[clip.name] = clip;
         }
-
-        return result;
     }
 
     private static AudioClip FindClip(Dictionary<string, AudioClip> clips, string keyword)
@@ -89,12 +114,11 @@ public static class AudioConfigSetup
     {
         var list = new List<BGMEntry>();
 
-        // BGM.MainMenu — 无对应文件，留空
-        list.Add(new BGMEntry { key = BGM.MainMenu, sound = new SoundEntry() });
-
-        list.Add(new BGMEntry { key = BGM.Exploration, sound = MakeEntry(FindClip(clips, "钟表嘀嗒"), 0.5f, true) });
+        list.Add(new BGMEntry { key = BGM.None, sound = new SoundEntry() });
+        list.Add(new BGMEntry { key = BGM.MainMenu, sound = MakeEntry(FindClip(clips, "BGM_开头"), 0.7f, true) });
+        list.Add(new BGMEntry { key = BGM.Exploration, sound = MakeEntry(FindClip(clips, "BGM_探索_紧张"), 0.5f, true) });
         list.Add(new BGMEntry { key = BGM.MonsterNear, sound = MakeEntry(FindClip(clips, "心跳_紧张"), 0.7f, true) });
-        list.Add(new BGMEntry { key = BGM.EscapeSuccess, sound = MakeEntry(FindClip(clips, "元素_心跳"), 0.6f, false) });
+        list.Add(new BGMEntry { key = BGM.EscapeSuccess, sound = MakeEntry(FindClip(clips, "BGM_结局_逃脱"), 0.6f, false) });
 
         return list.ToArray();
     }
@@ -167,6 +191,9 @@ public static class AudioConfigSetup
         // HUD 提示
         list.Add(MakeSFX(SFX.KeyFound, clips, "提示_找到钥匙"));
         list.Add(MakeSFX(SFX.EmptyBag, clips, "提示_空旅行袋"));
+
+        // 线索/文本
+        list.Add(MakeSFX(SFX.NotebookPageFlip, clips, "笔记本_翻页"));
 
         return list.ToArray();
     }

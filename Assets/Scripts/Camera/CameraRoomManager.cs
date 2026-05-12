@@ -32,6 +32,10 @@ public class CameraRoomManager : MonoBehaviour
     private bool showRoomKeyHint = true;
     [SerializeField]
     private string roomKeyHintFormat = "这个房间里有 {0} 把钥匙";
+    [SerializeField, Tooltip("Also detect the player's current room from RoomBounds, so hints still work if a door trigger misses.")]
+    private bool detectPlayerRoomForKeyHint = true;
+    [SerializeField, Min(0.05f)]
+    private float roomKeyHintCheckInterval = 0.15f;
 
     [Header("环境音映射")]
     [Tooltip("房间名到环境音的映射。未映射的房间不播放环境音。")]
@@ -45,22 +49,30 @@ public class CameraRoomManager : MonoBehaviour
     }
 
     private Dictionary<string, CinemachineVirtualCamera> cameraMap;
+    private Transform playerTransform;
+    private float nextRoomKeyHintCheckTime;
 
     private void Start()
     {
         cameraMap = BuildCameraMap(roomCameras);
+        CachePlayerTransform();
 
         if (switchToPlayerRoomOnStart)
             SwitchToPlayerRoomAtStart();
     }
 
+    private void Update()
+    {
+        UpdatePlayerRoomForKeyHint();
+    }
+
     private void SwitchToPlayerRoomAtStart()
     {
-        var player = GameObject.FindWithTag("Player");
-        if (player == null)
+        CachePlayerTransform();
+        if (playerTransform == null)
             return;
 
-        string initRoom = FindRoomAtPosition(player.transform.position);
+        string initRoom = FindRoomAtPosition(playerTransform.position);
         if (!string.IsNullOrEmpty(initRoom))
             SwitchRoom(initRoom);
     }
@@ -181,10 +193,53 @@ public class CameraRoomManager : MonoBehaviour
         showRoomKeyHint = !showRoomKeyHint;
     }
 
+    private void UpdatePlayerRoomForKeyHint()
+    {
+        if (!showRoomKeyHint || !detectPlayerRoomForKeyHint)
+            return;
+
+        if (Time.time < nextRoomKeyHintCheckTime)
+            return;
+
+        nextRoomKeyHintCheckTime = Time.time + Mathf.Max(0.05f, roomKeyHintCheckInterval);
+
+        CachePlayerTransform();
+        if (playerTransform == null)
+            return;
+
+        string playerRoom = FindRoomAtPosition(playerTransform.position);
+        if (string.IsNullOrEmpty(playerRoom) || playerRoom == currentRoom)
+            return;
+
+        SwitchRoom(playerRoom);
+    }
+
+    private void CachePlayerTransform()
+    {
+        if (playerTransform != null)
+            return;
+
+        var player = GameObject.FindWithTag("Player");
+        if (player != null)
+        {
+            playerTransform = player.transform;
+        }
+    }
+
     private void ShowRoomKeyHint(string roomName)
     {
         if (!showRoomKeyHint || string.IsNullOrEmpty(roomName))
             return;
+
+        CachePlayerTransform();
+        if (playerTransform != null)
+        {
+            string playerRoom = FindRoomAtPosition(playerTransform.position);
+            if (!string.IsNullOrEmpty(playerRoom) && playerRoom != roomName)
+            {
+                return;
+            }
+        }
 
         int keyCount = CountKeysInRoom(roomName);
         string message = string.IsNullOrWhiteSpace(roomKeyHintFormat)

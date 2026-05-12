@@ -38,5 +38,8 @@ public enum SFX
 
     // HUD 提示
     KeyFound,
-    EmptyBag
+    EmptyBag,
+
+    // 线索/文本
+    NotebookPageFlip
 }

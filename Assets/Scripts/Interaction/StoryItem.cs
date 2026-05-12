@@ -10,6 +10,6 @@ public class StoryItem : MonoBehaviour
 
     public void ShowStory(PlayerController player)
     {
-        StoryPanel.Show(storyText, player);
+        StoryPanel.Show(storyText, player, SFX.NotebookPageFlip);
     }
 }

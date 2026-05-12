@@ -25,22 +25,28 @@ MonoBehaviour:
       volume: 0
       pitchVariance: 0
       loop: 0
+  - key: 1
+    sound:
+      clip: {fileID: 8300000, guid: d16ea582b828f2b4c904743d38b54cba, type: 3}
+      volume: 0.7
+      pitchVariance: 0
+      loop: 1
   - key: 2
     sound:
-      clip: {fileID: 8300000, guid: e74f79a826b9bc9429073cb0abb81efd, type: 3}
-      volume: 1
+      clip: {fileID: 8300000, guid: e2bc32848fdf1f9469b7e84d27f481a9, type: 3}
+      volume: 0.5
       pitchVariance: 0
       loop: 1
   - key: 3
     sound:
       clip: {fileID: 8300000, guid: 39fe0ae509fa16d4fa74a5847e11e07a, type: 3}
-      volume: 1
+      volume: 0.7
       pitchVariance: 0
       loop: 1
   - key: 4
     sound:
-      clip: {fileID: 8300000, guid: 4de837abc10774040a42ffe3e04a8ad7, type: 3}
-      volume: 1
+      clip: {fileID: 8300000, guid: 57f13a67a3b32e04fa070de69bb9edbb, type: 3}
+      volume: 0.6
       pitchVariance: 0
       loop: 1
   ambientEntries:
