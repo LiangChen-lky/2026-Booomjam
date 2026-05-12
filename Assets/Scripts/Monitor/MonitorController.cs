@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using Cinemachine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -67,14 +66,15 @@ public class MonitorController : MonoBehaviour
     private Camera mainCamera;
     private Camera monitorCamera;
     private GameObject monitorCameraObject;
-    private CinemachineBrain brainRef;
-    private Coroutine restoreBlendCoroutine;
 
     public bool IsMonitorOpen => isMonitorOpen;
     public MonitorMode CurrentMode => currentMode;
     public int CurrentCameraIndex => currentCameraIndex;
     public int CurrentCameraCount => monitorViews.Count;
     public string CurrentCameraRoomName => GetCameraRoomName(currentCameraIndex);
+    public bool IsOnCooldown => isOnCooldown;
+    public float CooldownDuration => cooldownDuration;
+    public float CooldownRemaining => isOnCooldown ? Mathf.Max(0f, cooldownDuration - (Time.unscaledTime - lastCloseTime)) : 0f;
 
     private void Awake()
     {
@@ -116,8 +116,6 @@ public class MonitorController : MonoBehaviour
     {
         if (isOnCooldown)
         {
-            float remaining = cooldownDuration - (Time.unscaledTime - lastCloseTime);
-            Debug.Log($"[MonitorController] Monitor cooling down: {remaining:F1}s remaining.");
             return;
         }
 
@@ -152,8 +150,6 @@ public class MonitorController : MonoBehaviour
 
         SetVisionMaskEnabled(false);
 
-        brainRef = mainCamera != null ? mainCamera.GetComponent<CinemachineBrain>() : null;
-
         ShowUI();
 
         currentCameraIndex = 0;
@@ -177,10 +173,6 @@ public class MonitorController : MonoBehaviour
         if (camRoomManager != null && !string.IsNullOrEmpty(savedRoom))
             camRoomManager.SwitchRoom(savedRoom);
 
-        if (restoreBlendCoroutine != null)
-            StopCoroutine(restoreBlendCoroutine);
-        restoreBlendCoroutine = StartCoroutine(LogRestoredCameraNextFrame());
-
         if (monsterRef != null)
             monsterRef.enabled = true;
         monsterRef = null;
@@ -200,7 +192,6 @@ public class MonitorController : MonoBehaviour
             return;
 
         currentCameraIndex = (currentCameraIndex + 1) % monitorViews.Count;
-        Debug.Log($"[MonitorController] NextCamera -> index={currentCameraIndex}, room={GetCameraRoomName(currentCameraIndex)}");
         ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
     }
@@ -211,7 +202,6 @@ public class MonitorController : MonoBehaviour
             return;
 
         currentCameraIndex = (currentCameraIndex - 1 + monitorViews.Count) % monitorViews.Count;
-        Debug.Log($"[MonitorController] PrevCamera -> index={currentCameraIndex}, room={GetCameraRoomName(currentCameraIndex)}");
         ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
     }
@@ -229,7 +219,6 @@ public class MonitorController : MonoBehaviour
             if (monitorUIInstance != null)
                 monitorUIInstance.SetCameraFeed(view.image);
 
-            Debug.Log($"[MonitorController] ShowImage index={index}, room={view.roomName}, image={(view.image != null ? view.image.name : "null")}");
             return;
         }
 
@@ -252,22 +241,14 @@ public class MonitorController : MonoBehaviour
             monitorCamera.orthographicSize = view.orthographicSize;
         else
             monitorCamera.fieldOfView = view.fieldOfView;
-
-        Debug.Log($"[MonitorController] ShowCamera index={index}, room={view.roomName}, monitorCameraPos={monitorCamera.transform.position}, ortho={monitorCamera.orthographic}, orthoSize={monitorCamera.orthographicSize:F2}, depth={monitorCamera.depth:F1}");
-
-        if (gameObject.activeInHierarchy)
-            StartCoroutine(LogActiveCameraAfterFrame(index));
     }
 
     private void BuildViews()
     {
         monitorViews.Clear();
-        Debug.Log("[MonitorController] Building monitor views...");
 
         if ((preferImageFeeds || currentMode == MonitorMode.Image) && TryBuildViewsFromImageFeeds())
         {
-            Debug.Log($"[MonitorController] Using configured image feeds, total={monitorViews.Count}.");
-            LogMonitorViewNames();
             return;
         }
 
@@ -279,15 +260,10 @@ public class MonitorController : MonoBehaviour
 
         if (TryBuildViewsFromRoomManager())
         {
-            Debug.Log($"[MonitorController] Using CameraRoomManager room bindings, total={monitorViews.Count}.");
-            LogMonitorViewNames();
             return;
         }
 
-        Debug.Log("[MonitorController] No usable CameraRoomManager room cameras, scanning RoomBounds instead.");
         BuildViewsFromRoomBounds();
-        Debug.Log($"[MonitorController] Built {monitorViews.Count} fallback monitor views from RoomBounds.");
-        LogMonitorViewNames();
     }
 
     private bool TryBuildViewsFromImageFeeds()
@@ -339,14 +315,12 @@ public class MonitorController : MonoBehaviour
         var camRoomManager = FindObjectOfType<CameraRoomManager>();
         if (camRoomManager == null)
         {
-            Debug.Log("[MonitorController] CameraRoomManager not found.");
             return false;
         }
 
         var roomCameras = camRoomManager.GetValidRoomCameras();
         if (roomCameras == null || roomCameras.Length == 0)
         {
-            Debug.Log("[MonitorController] CameraRoomManager has no valid room cameras.");
             return false;
         }
 
@@ -451,8 +425,6 @@ public class MonitorController : MonoBehaviour
         monitorCamera.targetTexture = null;
         monitorCamera.enabled = true;
         monitorCameraObject.SetActive(true);
-
-        Debug.Log($"[MonitorController] Monitor camera enabled. mainDepth={mainCamera.depth:F1}, monitorDepth={monitorCamera.depth:F1}, cullingMask={monitorCamera.cullingMask}");
     }
 
     private void DisableMonitorCamera()
@@ -483,48 +455,12 @@ public class MonitorController : MonoBehaviour
         mask.SetForceHidden(!enabled);
     }
 
-    private void LogMonitorViewNames()
-    {
-        for (int i = 0; i < monitorViews.Count; i++)
-        {
-            var view = monitorViews[i];
-            Debug.Log($"[MonitorController] View[{i}] room={view.roomName} pos={view.position}");
-        }
-    }
-
     private string GetCameraRoomName(int index)
     {
         if (index < 0 || index >= monitorViews.Count)
             return "<out_of_range>";
 
         return monitorViews[index].roomName;
-    }
-
-    private IEnumerator LogActiveCameraAfterFrame(int index)
-    {
-        yield return null;
-
-        string activeCameraName = brainRef != null && brainRef.ActiveVirtualCamera != null
-            ? brainRef.ActiveVirtualCamera.Name
-            : "<brain_disabled>";
-        string monitorCameraPos = monitorCamera != null
-            ? monitorCamera.transform.position.ToString("F2")
-            : "<no_monitor_camera>";
-
-        Debug.Log($"[MonitorController] AfterFrame index={index}, room={GetCameraRoomName(index)}, activeVirtualCamera={activeCameraName}, monitorCameraPos={monitorCameraPos}");
-    }
-
-    private IEnumerator LogRestoredCameraNextFrame()
-    {
-        yield return null;
-        restoreBlendCoroutine = null;
-
-        string activeCameraName = brainRef != null && brainRef.ActiveVirtualCamera != null
-            ? brainRef.ActiveVirtualCamera.Name
-            : "<brain_disabled>";
-        string mainCameraPos = mainCamera != null ? mainCamera.transform.position.ToString("F2") : "<no_camera>";
-
-        Debug.Log($"[MonitorController] Monitor closed. activeVirtualCamera={activeCameraName}, mainCameraPos={mainCameraPos}");
     }
 
     private void ShowUI()

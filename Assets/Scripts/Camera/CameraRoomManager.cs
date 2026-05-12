@@ -43,9 +43,6 @@ public class CameraRoomManager : MonoBehaviour
     private void Start()
     {
         cameraMap = BuildCameraMap(roomCameras);
-        Debug.Log($"[CameraRoomManager] Start 时注册了 {cameraMap.Count} 个房间相机。");
-
-        // Debug.Log($"[CameraRoom] 共 {cameraMap.Count} 个房间相机");
 
         if (switchToPlayerRoomOnStart)
             SwitchToPlayerRoomAtStart();
@@ -68,7 +65,6 @@ public class CameraRoomManager : MonoBehaviour
 
         if (roomCameras == null || roomCameras.Length == 0)
         {
-            Debug.Log("[CameraRoomManager] roomCameras 为空。");
             return new RoomCamera[0];
         }
 
@@ -87,7 +83,6 @@ public class CameraRoomManager : MonoBehaviour
             validRoomCameras.Add(roomCamera);
         }
 
-        Debug.Log($"[CameraRoomManager] 有效 roomCameras 数量: {validRoomCameras.Count} / {roomCameras.Length}");
         return validRoomCameras.ToArray();
     }
 
@@ -107,7 +102,6 @@ public class CameraRoomManager : MonoBehaviour
         var boundsByRoom = BuildRoomBoundsMap();
         if (boundsByRoom.Count == 0)
         {
-            Debug.Log("[CameraRoomManager] No RoomBounds found while aligning room cameras.");
             return;
         }
 
@@ -137,8 +131,6 @@ public class CameraRoomManager : MonoBehaviour
             confiner.m_Damping = 0f;
             confiner.m_MaxWindowSize = 0;
             confiner.InvalidateCache();
-
-            Debug.Log($"[CameraRoomManager] Aligned room camera {vcam.name}: room={roomCamera.roomName}, pos={vcam.transform.position}, follow={(vcam.Follow != null ? vcam.Follow.name : "null")}, lookAt={(vcam.LookAt != null ? vcam.LookAt.name : "null")}");
         }
     }
 
@@ -147,8 +139,6 @@ public class CameraRoomManager : MonoBehaviour
         if (string.IsNullOrEmpty(newRoom)) return;
         if (cameraMap == null)
             cameraMap = BuildCameraMap(roomCameras);
-
-        // Debug.Log($"[CameraRoom] 切换: {currentRoom} → {newRoom}");
 
         if (controlRoomCameraPriorities && cameraMap.ContainsKey(newRoom))
         {
@@ -186,13 +176,10 @@ public class CameraRoomManager : MonoBehaviour
     {
         // 用场景中的 RoomBounds_Xxx 检测，包括失活对象
         var roomBounds = GetSceneRoomBounds();
-        Debug.Log($"[CameraRoomManager] FindRoomAtPosition 扫描到 {roomBounds.Length} 个 RoomBounds。");
         foreach (var col in roomBounds)
         {
-            Debug.Log($"[CameraRoomManager] 检查 {col.name} active={col.gameObject.activeInHierarchy} scene={col.gameObject.scene.name}");
             if (col.OverlapPoint(worldPos))
             {
-                Debug.Log($"[CameraRoomManager] 命中房间 {col.name}。");
                 return col.name.Replace("RoomBounds_", "");
             }
         }
@@ -217,7 +204,6 @@ public class CameraRoomManager : MonoBehaviour
                 continue;
 
             map[roomCamera.roomName] = roomCamera.vcam;
-            // Debug.Log($"[CameraRoom] 注册房间相机: {roomCamera.roomName}, Priority={roomCamera.vcam.Priority}");
         }
 
         return map;
@@ -248,8 +234,6 @@ public class CameraRoomManager : MonoBehaviour
             var scene = SceneManager.GetSceneAt(sceneIndex);
             if (!scene.isLoaded)
                 continue;
-
-            Debug.Log($"[CameraRoomManager] 扫描场景: {scene.name}");
             foreach (var root in scene.GetRootGameObjects())
             {
                 if (root == null)
@@ -263,8 +247,6 @@ public class CameraRoomManager : MonoBehaviour
 
                     if (!col.name.StartsWith("RoomBounds_"))
                         continue;
-
-                    Debug.Log($"[CameraRoomManager] 找到边界 {col.name} active={col.gameObject.activeInHierarchy}");
                     roomBounds.Add(col);
                 }
             }
