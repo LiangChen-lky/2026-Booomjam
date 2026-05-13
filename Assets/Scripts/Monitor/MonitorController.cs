@@ -66,6 +66,8 @@ public class MonitorController : MonoBehaviour
     private Camera mainCamera;
     private Camera monitorCamera;
     private GameObject monitorCameraObject;
+    private bool savedCursorVisible;
+    private CursorLockMode savedCursorLockState;
 
     public bool IsMonitorOpen => isMonitorOpen;
     public MonitorMode CurrentMode => currentMode;
@@ -91,6 +93,9 @@ public class MonitorController : MonoBehaviour
     {
         if (Instance == this)
             Instance = null;
+
+        if (isMonitorOpen)
+            RestoreCursorAfterMonitor();
 
         CleanupUI();
         CleanupMonitorCamera();
@@ -149,6 +154,7 @@ public class MonitorController : MonoBehaviour
             playerRef.Input.DisablePlayerMoveInput();
 
         SetVisionMaskEnabled(false);
+        ShowCursorForMonitor();
 
         ShowUI();
 
@@ -159,13 +165,17 @@ public class MonitorController : MonoBehaviour
             StartCoroutine(SignalLostCoroutine());
     }
 
-    private void CloseMonitor()
+    public void CloseMonitor()
     {
+        if (!isMonitorOpen)
+            return;
+
         isMonitorOpen = false;
         isSignalLost = false;
         AudioManager.Instance.Play(SFX.MonitorClose);
 
         HideUI();
+        RestoreCursorAfterMonitor();
         SetVisionMaskEnabled(true);
         DisableMonitorCamera();
 
@@ -489,6 +499,23 @@ public class MonitorController : MonoBehaviour
     {
         if (monitorUIInstance != null)
             monitorUIInstance.Hide();
+    }
+
+    private void ShowCursorForMonitor()
+    {
+        savedCursorVisible = Cursor.visible;
+        savedCursorLockState = Cursor.lockState;
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+    }
+
+    private void RestoreCursorAfterMonitor()
+    {
+        if (PauseMenu.IsPaused || ConfirmPanel.IsShowing)
+            return;
+
+        Cursor.visible = savedCursorVisible;
+        Cursor.lockState = savedCursorLockState;
     }
 
     private void CleanupUI()

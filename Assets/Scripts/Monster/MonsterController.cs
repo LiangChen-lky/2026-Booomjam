@@ -253,6 +253,12 @@ public class MonsterController : MonoBehaviour
         {
             if (hit != null && hit.CompareTag("Door"))
             {
+                var doorComponent = hit.GetComponent<Door>();
+                if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen))
+                {
+                    continue;
+                }
+
                 // 检查门是否在玩家方向
                 Vector2 doorDir = ((Vector2)hit.transform.position - (Vector2)transform.position).normalized;
                 float dot = Vector2.Dot(direction, doorDir);
@@ -275,30 +281,32 @@ public class MonsterController : MonoBehaviour
     private void OpenDoor(GameObject door)
     {
         int doorId = door.GetInstanceID();
-        
-        // 更新 SpriteRenderer 透明度
-        var sr = door.GetComponentInChildren<SpriteRenderer>(true);
-        if (sr != null)
-        {
-            Color c = sr.color;
-            c.a = 0.7f; // 与 PlayerController.doorOpenedSpriteAlpha 一致
-            sr.color = c;
-        }
 
-        // 禁用物理碰撞体（保留 Trigger 用于交互检测）
-        foreach (var col in door.GetComponentsInChildren<Collider2D>(true))
-        {
-            if (!col.isTrigger)
-                col.enabled = false;
-        }
-        
-        // 通知门更新寻路网格
         var doorComponent = door.GetComponent<Door>();
         if (doorComponent != null)
         {
-            doorComponent.OnDoorStateChanged();
+            if (!doorComponent.CanMonsterOpen || doorComponent.IsOpen) return;
+            doorComponent.ApplyOpenState(true, 0.7f);
         }
-        
+        else
+        {
+            // 更新 SpriteRenderer 透明度
+            var sr = door.GetComponentInChildren<SpriteRenderer>(true);
+            if (sr != null)
+            {
+                Color c = sr.color;
+                c.a = 0.7f; // 与 PlayerController.doorOpenedSpriteAlpha 一致
+                sr.color = c;
+            }
+
+            // 禁用物理碰撞体（保留 Trigger 用于交互检测）
+            foreach (var col in door.GetComponentsInChildren<Collider2D>(true))
+            {
+                if (!col.isTrigger)
+                    col.enabled = false;
+            }
+        }
+
         // 记录已开门 ID
         openedDoorIds.Add(doorId);
 

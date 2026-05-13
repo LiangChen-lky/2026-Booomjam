@@ -256,6 +256,7 @@ public class AudioManager : MonoBehaviour
     public void SetSFXVolume(float volume)
     {
         if (config != null) config.sfxVolume = Mathf.Clamp01(volume);
+        ApplyVolumes();
     }
 
     public void SetAmbientVolume(float volume)
@@ -272,7 +273,7 @@ public class AudioManager : MonoBehaviour
     private float GetMasterVolume() => config != null ? config.masterVolume : 1f;
     private float GetBGMVolume() => config != null ? config.bgmVolume * config.masterVolume : 0.7f;
     private float GetSFXVolume() => config != null ? config.sfxVolume * config.masterVolume : 1f;
-    private float GetAmbientVolume() => config != null ? config.ambientVolume * config.masterVolume : 0.5f;
+    private float GetAmbientVolume() => config != null ? config.ambientVolume * config.sfxVolume * config.masterVolume : 0.5f;
 
     private void ApplyVolumes()
     {

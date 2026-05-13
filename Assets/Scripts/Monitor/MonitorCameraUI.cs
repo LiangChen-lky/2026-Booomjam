@@ -22,6 +22,9 @@ public class MonitorCameraUI : MonoBehaviour
     [SerializeField, Tooltip("TMP text named RoomName in the monitor UI prefab.")]
     private TMP_Text roomNameText;
 
+    [SerializeField, Tooltip("Button named CloseButton in the monitor UI prefab.")]
+    private Button closeButton;
+
     private Image cameraFeedImage;
     private CanvasGroup canvasGroup;
 
@@ -31,8 +34,15 @@ public class MonitorCameraUI : MonoBehaviour
         SetupVisuals();
         SetupCameraFeedImage();
         SetupRoomNameText();
+        SetupCloseButton();
         Hide();
         if (signalLostOverlay != null) signalLostOverlay.enabled = false;
+    }
+
+    private void OnDestroy()
+    {
+        if (closeButton != null)
+            closeButton.onClick.RemoveListener(OnCloseButtonClicked);
     }
 
     private void Update()
@@ -173,6 +183,35 @@ public class MonitorCameraUI : MonoBehaviour
                 break;
             }
         }
+    }
+
+    private void SetupCloseButton()
+    {
+        if (closeButton == null)
+        {
+            var buttons = GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i].name == "CloseButton")
+                {
+                    closeButton = buttons[i];
+                    break;
+                }
+            }
+        }
+
+        if (closeButton == null)
+            return;
+
+        closeButton.onClick.RemoveListener(OnCloseButtonClicked);
+        closeButton.onClick.AddListener(OnCloseButtonClicked);
+    }
+
+    private void OnCloseButtonClicked()
+    {
+        var monitor = MonitorController.Instance;
+        if (monitor != null)
+            monitor.CloseMonitor();
     }
 
     private void RefreshRoomName()

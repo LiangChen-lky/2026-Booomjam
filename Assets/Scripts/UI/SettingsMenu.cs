@@ -11,6 +11,18 @@ public class SettingsMenu : MonoBehaviour
     private const string SfxVolumeKey = "SFXVolume";
     private const string FullscreenKey = "Fullscreen";
     private const string ResolutionIndexKey = "ResolutionIndex";
+    private const string ResolutionWidthKey = "ResolutionWidth";
+    private const string ResolutionHeightKey = "ResolutionHeight";
+    private const float RuntimeContentScale = 1.45f;
+
+    private static readonly Vector2Int[] ClassicResolutionSizes =
+    {
+        new Vector2Int(1280, 720),
+        new Vector2Int(1600, 900),
+        new Vector2Int(1920, 1080),
+        new Vector2Int(2560, 1440),
+        new Vector2Int(3840, 2160)
+    };
 
     [SerializeField] private Slider masterSlider;
     [SerializeField] private Slider bgmSlider;
@@ -26,10 +38,12 @@ public class SettingsMenu : MonoBehaviour
     private Resolution[] availableResolutions;
     private int selectedResolutionIndex;
     private bool listenersBound;
+    private RectTransform contentLayout;
 
     private void Awake()
     {
         CacheReferences();
+        ApplyRuntimeContentScale();
         BindEvents();
         RefreshResolutionOptions();
         LoadSettings();
@@ -39,6 +53,7 @@ public class SettingsMenu : MonoBehaviour
     private void OnEnable()
     {
         CacheReferences();
+        ApplyRuntimeContentScale();
         RefreshResolutionOptions();
         LoadSettings();
         UpdateUIValues();
@@ -65,6 +80,16 @@ public class SettingsMenu : MonoBehaviour
         if (sensitivityValueText == null) sensitivityValueText = FindChildComponent<Text>("SensitivityValue");
         if (applyButton == null) applyButton = FindChildComponent<Button>("ApplyButton");
         if (backButton == null) backButton = FindChildComponent<Button>("BackButton");
+        if (contentLayout == null)
+            contentLayout = FindChildComponent<RectTransform>("VerticalLayout");
+    }
+
+    private void ApplyRuntimeContentScale()
+    {
+        if (contentLayout == null)
+            return;
+
+        contentLayout.localScale = new Vector3(RuntimeContentScale, RuntimeContentScale, 1f);
     }
 
     private void BindEvents()
@@ -123,7 +148,7 @@ public class SettingsMenu : MonoBehaviour
 
     private void RefreshResolutionOptions()
     {
-        availableResolutions = Screen.resolutions;
+        availableResolutions = GetClassicResolutions();
         if (resolutionDropdown == null || availableResolutions == null || availableResolutions.Length == 0)
             return;
 
@@ -156,9 +181,9 @@ public class SettingsMenu : MonoBehaviour
                 sensitivityValueText.text = sensitivitySlider.value.ToString("F1");
         }
         if (fullscreenToggle != null)
-            fullscreenToggle.isOn = Screen.fullScreen;
+            fullscreenToggle.SetIsOnWithoutNotify(Screen.fullScreen);
         if (resolutionDropdown != null && resolutionDropdown.options.Count > 0)
-            resolutionDropdown.value = Mathf.Clamp(selectedResolutionIndex, 0, resolutionDropdown.options.Count - 1);
+            resolutionDropdown.SetValueWithoutNotify(Mathf.Clamp(selectedResolutionIndex, 0, resolutionDropdown.options.Count - 1));
     }
 
     private void OnMasterVolumeChanged(float value)
@@ -250,23 +275,28 @@ public class SettingsMenu : MonoBehaviour
         var bgm = PlayerPrefs.GetFloat(BgmVolumeKey, 0.7f);
         var sfx = PlayerPrefs.GetFloat(SfxVolumeKey, 1f);
         var fullscreen = PlayerPrefs.GetInt(FullscreenKey, 1) == 1;
-        var resIndex = PlayerPrefs.GetInt(ResolutionIndexKey, -1);
 
         AudioManager.Instance.SetMasterVolume(master);
         AudioManager.Instance.SetBGMVolume(bgm);
         AudioManager.Instance.SetSFXVolume(sfx);
 
-        if (resIndex >= 0 && availableResolutions != null && resIndex < availableResolutions.Length)
+#if UNITY_EDITOR
+        Screen.fullScreen = fullscreen;
+        selectedResolutionIndex = GetSavedOrCurrentResolutionIndex();
+#else
+        var savedResolutionIndex = GetSavedResolutionIndex();
+        if (savedResolutionIndex >= 0 && availableResolutions != null && savedResolutionIndex < availableResolutions.Length)
         {
-            var res = availableResolutions[resIndex];
+            var res = availableResolutions[savedResolutionIndex];
             Screen.SetResolution(res.width, res.height, fullscreen ? FullScreenMode.ExclusiveFullScreen : FullScreenMode.Windowed);
-            selectedResolutionIndex = resIndex;
+            selectedResolutionIndex = savedResolutionIndex;
         }
         else
         {
             Screen.fullScreen = fullscreen;
             selectedResolutionIndex = GetSavedOrCurrentResolutionIndex();
         }
+#endif
     }
 
     private int GetSavedOrCurrentResolutionIndex()
@@ -274,28 +304,105 @@ public class SettingsMenu : MonoBehaviour
         if (availableResolutions == null || availableResolutions.Length == 0)
             return 0;
 
-        var savedIndex = PlayerPrefs.GetInt(ResolutionIndexKey, -1);
-        if (savedIndex >= 0 && savedIndex < availableResolutions.Length)
-            return savedIndex;
+        var savedResolutionIndex = GetSavedResolutionIndex();
+        if (savedResolutionIndex >= 0)
+            return savedResolutionIndex;
 
+        var currentResolutionIndex = FindResolutionIndex(Screen.width, Screen.height);
+        if (currentResolutionIndex >= 0)
+            return currentResolutionIndex;
+
+        return FindClosestResolutionIndex(Screen.width, Screen.height);
+    }
+
+    private int GetSavedResolutionIndex()
+    {
+        if (availableResolutions == null || availableResolutions.Length == 0)
+            return -1;
+
+        var savedWidth = PlayerPrefs.GetInt(ResolutionWidthKey, -1);
+        var savedHeight = PlayerPrefs.GetInt(ResolutionHeightKey, -1);
+        if (savedWidth > 0 && savedHeight > 0)
+        {
+            var savedResolutionIndex = FindResolutionIndex(savedWidth, savedHeight);
+            if (savedResolutionIndex >= 0)
+                return savedResolutionIndex;
+        }
+
+        return -1;
+    }
+
+    private int FindClosestResolutionIndex(int width, int height)
+    {
         var bestIndex = 0;
+        var bestDistance = int.MaxValue;
         for (int i = 0; i < availableResolutions.Length; i++)
         {
             var res = availableResolutions[i];
-            if (res.width == Screen.width && res.height == Screen.height)
-            {
-                bestIndex = i;
-                break;
-            }
+            var distance = Mathf.Abs(res.width - width) + Mathf.Abs(res.height - height);
+            if (distance >= bestDistance)
+                continue;
+
+            bestDistance = distance;
+            bestIndex = i;
         }
 
         return bestIndex;
     }
 
+    private Resolution[] GetClassicResolutions()
+    {
+        var supportedResolutions = Screen.resolutions;
+        if (supportedResolutions == null || supportedResolutions.Length == 0)
+            return supportedResolutions;
+
+        var classicResolutions = new List<Resolution>(ClassicResolutionSizes.Length);
+        for (int i = 0; i < ClassicResolutionSizes.Length; i++)
+        {
+            var size = ClassicResolutionSizes[i];
+            var bestMatch = FindBestSupportedResolution(supportedResolutions, size.x, size.y);
+            if (bestMatch.width > 0 && bestMatch.height > 0)
+                classicResolutions.Add(bestMatch);
+        }
+
+        if (classicResolutions.Count == 0)
+            classicResolutions.Add(supportedResolutions[supportedResolutions.Length - 1]);
+
+        return classicResolutions.ToArray();
+    }
+
+    private Resolution FindBestSupportedResolution(Resolution[] supportedResolutions, int width, int height)
+    {
+        var bestMatch = new Resolution();
+        for (int i = 0; i < supportedResolutions.Length; i++)
+        {
+            var res = supportedResolutions[i];
+            if (res.width != width || res.height != height)
+                continue;
+
+            if (bestMatch.width == 0 || res.refreshRateRatio.value > bestMatch.refreshRateRatio.value)
+                bestMatch = res;
+        }
+
+        return bestMatch;
+    }
+
+    private int FindResolutionIndex(int width, int height)
+    {
+        for (int i = 0; i < availableResolutions.Length; i++)
+        {
+            var res = availableResolutions[i];
+            if (res.width == width && res.height == height)
+                return i;
+        }
+
+        return -1;
+    }
+
     private void ApplyDisplaySettings(int resolutionIndex, bool fullscreen, bool save)
     {
         if (availableResolutions == null || availableResolutions.Length == 0)
-            availableResolutions = Screen.resolutions;
+            availableResolutions = GetClassicResolutions();
 
         if (availableResolutions == null || availableResolutions.Length == 0)
             return;
@@ -313,6 +420,8 @@ public class SettingsMenu : MonoBehaviour
 
         PlayerPrefs.SetInt(FullscreenKey, fullscreen ? 1 : 0);
         PlayerPrefs.SetInt(ResolutionIndexKey, resolutionIndex);
+        PlayerPrefs.SetInt(ResolutionWidthKey, res.width);
+        PlayerPrefs.SetInt(ResolutionHeightKey, res.height);
         PlayerPrefs.Save();
     }
 

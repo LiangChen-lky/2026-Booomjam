@@ -72,6 +72,7 @@ public class PlayerController : MonoBehaviour
     private readonly Collider2D[] interactionOverlapArray = new Collider2D[32];
     private readonly HashSet<int> openedDoorIds = new HashSet<int>();
     private float lastFootstepTime;
+    private bool playerRequestedCursorVisible;
 
     public int CurrentHealth { get; private set; }
     public int CurrentKey { get; private set; }
@@ -111,7 +112,10 @@ public class PlayerController : MonoBehaviour
     private void OnEnable()
     {
         hasLastMouseScreenPosition = false;
-        Cursor.visible = false;
+        if (!ConfirmPanel.IsShowing)
+        {
+            ApplyPlayerCursorVisibility();
+        }
     }
 
     private void OnDisable()
@@ -138,6 +142,9 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        HandleCursorRevealInput();
+        ApplyPlayerCursorVisibility();
+
         if (PauseMenu.IsPaused) return;
 
         // 读取移动输入，后续在物理帧中统一处理位移。
@@ -208,7 +215,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (PauseMenu.IsPaused || StoryPanel.IsShowing)
+        if (PauseMenu.IsPaused || StoryPanel.IsShowing || ConfirmPanel.IsShowing)
         {
             InteractionIcon.gameObject.SetActive(false);
             return;
@@ -279,7 +286,7 @@ public class PlayerController : MonoBehaviour
     private void RotatePlayer()
     {
         if (PauseMenu.IsPaused) return;
-        if (StoryPanel.IsShowing) return;
+        if (StoryPanel.IsShowing || ConfirmPanel.IsShowing) return;
         if (!hasCachedLookDirection)
         {
             return;
@@ -290,6 +297,34 @@ public class PlayerController : MonoBehaviour
         float adjustedRotateSpeed = rotateSpeed * mouseSensitivity;
         float nextAngle = Mathf.MoveTowardsAngle(Rigidbody.rotation, targetAngle, adjustedRotateSpeed * Time.fixedDeltaTime);
         Rigidbody.MoveRotation(nextAngle);
+    }
+
+    private void HandleCursorRevealInput()
+    {
+        if (!UnityEngine.Input.GetKeyDown(KeyCode.LeftAlt) && !UnityEngine.Input.GetKeyDown(KeyCode.RightAlt))
+            return;
+
+        playerRequestedCursorVisible = !playerRequestedCursorVisible;
+        ApplyPlayerCursorVisibility();
+    }
+
+    private void ApplyPlayerCursorVisibility()
+    {
+        if (PauseMenu.IsPaused || ConfirmPanel.IsShowing || IsMonitorOpen())
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            return;
+        }
+
+        Cursor.visible = playerRequestedCursorVisible;
+        Cursor.lockState = CursorLockMode.None;
+    }
+
+    private static bool IsMonitorOpen()
+    {
+        var monitor = MonitorController.Instance;
+        return monitor != null && monitor.IsMonitorOpen;
     }
 
     // private void ClampToCamera()
@@ -419,7 +454,8 @@ public class PlayerController : MonoBehaviour
     private void InteractWithDoor(GameObject door)
     {
         int doorId = door.GetInstanceID();
-        bool isOpened = openedDoorIds.Contains(doorId);
+        var doorComponent = door.GetComponent<Door>();
+        bool isOpened = doorComponent != null ? doorComponent.IsOpen : openedDoorIds.Contains(doorId);
         if (isOpened)
         {
             SetDoorOpenedState(door, false);
@@ -443,6 +479,13 @@ public class PlayerController : MonoBehaviour
 
     private void SetDoorOpenedState(GameObject door, bool isOpened)
     {
+        var doorComponent = door.GetComponent<Door>();
+        if (doorComponent != null)
+        {
+            doorComponent.ApplyOpenState(isOpened, doorOpenedSpriteAlpha);
+            return;
+        }
+
         var sr = door.GetComponentInChildren<SpriteRenderer>(true);
         if (sr != null)
         {
@@ -457,13 +500,6 @@ public class PlayerController : MonoBehaviour
             if (!col.isTrigger)
                 col.enabled = !isOpened;
         }
-        
-        // 通知门更新寻路网格
-        var doorComponent = door.GetComponent<Door>();
-        if (doorComponent != null)
-        {
-            doorComponent.OnDoorStateChanged();
-        }
     }
 
     #region Input Methods
@@ -471,7 +507,7 @@ public class PlayerController : MonoBehaviour
     // 玩家按下交互键时触发的回调方法，可以在这里处理交互逻辑，比如打开门、拾取物品等。
     private void OnInteractionStarted(InputAction.CallbackContext obj)
     {
-        if (PauseMenu.IsPaused || StoryPanel.IsShowing) return;
+        if (PauseMenu.IsPaused || StoryPanel.IsShowing || ConfirmPanel.IsShowing) return;
 
         if (isInteracting)
         {
@@ -501,6 +537,19 @@ public class PlayerController : MonoBehaviour
 
         if (TryGetObjectInRange(doorTag, out targetObject))
         {
+            var door = targetObject.GetComponent<Door>();
+            if (door != null && door.RequiresPlayerFirstOpen)
+            {
+                var selectedDoor = targetObject;
+                ConfirmPanel.Show("是否撬开门", this, () =>
+                {
+                    var selectedDoorComponent = selectedDoor.GetComponent<Door>();
+                    selectedDoorComponent?.MarkPlayerFirstOpenCompleted();
+                    InteractWithDoor(selectedDoor);
+                });
+                return;
+            }
+
             InteractWithDoor(targetObject);
         }
     }
