@@ -35,6 +35,8 @@ public class MonsterController : MonoBehaviour
     private LayerMask movementBlockMask;
     [SerializeField, Tooltip("How often the monster requests a new path after its collider hits a wall.")]
     private float blockedRepathInterval = 0.35f;
+    [SerializeField, Tooltip("Extra clearance around the monster when validating wander destinations.")]
+    private float destinationClearance = 0.05f;
 
     [Header("SFX")]
     [SerializeField, Tooltip("Monster footstep interval in seconds.")]
@@ -216,6 +218,11 @@ public class MonsterController : MonoBehaviour
             }
 
             if (Vector2.Distance(transform.position, walkableTarget) < MinWanderPointDistance)
+            {
+                continue;
+            }
+
+            if (!IsPositionClear(walkableTarget))
             {
                 continue;
             }
@@ -453,6 +460,32 @@ public class MonsterController : MonoBehaviour
         walkablePoint = nearest.position;
         walkablePoint.z = transform.position.z;
         return true;
+    }
+
+    private bool IsPositionClear(Vector3 position)
+    {
+        if (movementBlockMask.value == 0)
+        {
+            return true;
+        }
+
+        if (bodyCollider is BoxCollider2D boxCollider)
+        {
+            Vector2 center = position + (Vector3)boxCollider.offset;
+            Vector2 size = Vector2.Scale(boxCollider.size, transform.lossyScale);
+            size.x = Mathf.Abs(size.x) + destinationClearance * 2f;
+            size.y = Mathf.Abs(size.y) + destinationClearance * 2f;
+            return Physics2D.OverlapBox(center, size, transform.eulerAngles.z, movementBlockMask) == null;
+        }
+
+        if (bodyCollider is CircleCollider2D circleCollider)
+        {
+            Vector2 center = position + (Vector3)circleCollider.offset;
+            float radius = circleCollider.radius * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y));
+            return Physics2D.OverlapCircle(center, radius + destinationClearance, movementBlockMask) == null;
+        }
+
+        return Physics2D.OverlapCircle(position, nextWaypointDistance + destinationClearance, movementBlockMask) == null;
     }
 
     private void CheckForDoor()

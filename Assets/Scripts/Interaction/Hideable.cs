@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
@@ -9,6 +10,7 @@ public class Hideable : MonoBehaviour
     private Collider2D col;
     private SpriteRenderer sr;
     private float originalAlpha;
+    private readonly List<Collider2D> ignoredPlayerColliders = new List<Collider2D>();
 
     private void Awake()
     {
@@ -17,9 +19,14 @@ public class Hideable : MonoBehaviour
         if (sr != null) originalAlpha = sr.color.a;
     }
 
+    private void OnDisable()
+    {
+        RestoreIgnoredPlayerCollisions();
+    }
+
     public void OnEnter(PlayerController player)
     {
-        col.enabled = false;
+        SetPlayerCollisionIgnored(player, true);
         if (sr != null)
         {
             Color c = sr.color;
@@ -33,7 +40,7 @@ public class Hideable : MonoBehaviour
 
     public void OnExit(PlayerController player)
     {
-        col.enabled = true;
+        SetPlayerCollisionIgnored(player, false);
         if (sr != null)
         {
             Color c = sr.color;
@@ -41,5 +48,46 @@ public class Hideable : MonoBehaviour
             sr.color = c;
         }
         AudioManager.Instance.Play(SFX.HideOut);
+    }
+
+    private void SetPlayerCollisionIgnored(PlayerController player, bool ignored)
+    {
+        if (col == null || player == null) return;
+
+        if (ignored)
+        {
+            RestoreIgnoredPlayerCollisions();
+            Collider2D[] playerColliders = player.GetComponentsInChildren<Collider2D>();
+            foreach (Collider2D playerCollider in playerColliders)
+            {
+                if (playerCollider == null || !playerCollider.enabled) continue;
+
+                Physics2D.IgnoreCollision(col, playerCollider, true);
+                ignoredPlayerColliders.Add(playerCollider);
+            }
+
+            return;
+        }
+
+        RestoreIgnoredPlayerCollisions();
+    }
+
+    private void RestoreIgnoredPlayerCollisions()
+    {
+        if (col == null)
+        {
+            ignoredPlayerColliders.Clear();
+            return;
+        }
+
+        foreach (Collider2D playerCollider in ignoredPlayerColliders)
+        {
+            if (playerCollider != null)
+            {
+                Physics2D.IgnoreCollision(col, playerCollider, false);
+            }
+        }
+
+        ignoredPlayerColliders.Clear();
     }
 }
