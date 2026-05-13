@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57e7bfbbad42b494196de036e4a468ad, type: 3}
   m_Name: AudioConfig
   m_EditorClassIdentifier: 
-  masterVolume: 1
-  bgmVolume: 0.7
+  masterVolume: 0
+  bgmVolume: 1
   sfxVolume: 1
   ambientVolume: 0.5
   bgmCrossFadeDuration: 1.5
@@ -28,25 +28,25 @@ MonoBehaviour:
   - key: 1
     sound:
       clip: {fileID: 8300000, guid: d16ea582b828f2b4c904743d38b54cba, type: 3}
-      volume: 0.7
+      volume: 1
       pitchVariance: 0
       loop: 1
   - key: 2
     sound:
       clip: {fileID: 8300000, guid: e2bc32848fdf1f9469b7e84d27f481a9, type: 3}
-      volume: 0.5
+      volume: 1
       pitchVariance: 0
       loop: 1
   - key: 3
     sound:
       clip: {fileID: 8300000, guid: 39fe0ae509fa16d4fa74a5847e11e07a, type: 3}
-      volume: 0.7
+      volume: 1
       pitchVariance: 0
       loop: 1
   - key: 4
     sound:
       clip: {fileID: 8300000, guid: 57f13a67a3b32e04fa070de69bb9edbb, type: 3}
-      volume: 0.6
+      volume: 1
       pitchVariance: 0
       loop: 1
   ambientEntries:
