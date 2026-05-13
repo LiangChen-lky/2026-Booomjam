@@ -240,6 +240,9 @@ public class PauseMenu : MonoBehaviour
 
     private GameObject LoadSettingsPanelPrefab()
     {
+        var fromResources = Resources.Load<GameObject>("UI/SettingsPanel");
+        if (fromResources != null)
+            return fromResources;
 #if UNITY_EDITOR
         const string prefabPath = "Assets/Prefabs/UI/SettingsPanel.prefab";
         return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);

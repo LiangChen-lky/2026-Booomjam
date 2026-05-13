@@ -473,6 +473,21 @@ public class MonitorController : MonoBehaviour
         });
     }
 
+    /// <summary>
+    /// Maps an asset path basename to <c>Resources/MonitorRooms/&lt;name&gt;</c> (e.g. Cuardroom.png → Guardroom).
+    /// </summary>
+    private static string GetMonitorRoomResourceName(string imagePath)
+    {
+        string baseName = Path.GetFileNameWithoutExtension(imagePath);
+        if (string.IsNullOrEmpty(baseName))
+            return null;
+
+        if (string.Equals(baseName, "Cuardroom", System.StringComparison.OrdinalIgnoreCase))
+            return "Guardroom";
+
+        return baseName;
+    }
+
     private static Sprite LoadSpriteFromPath(string imagePath)
     {
         if (string.IsNullOrWhiteSpace(imagePath))
@@ -480,6 +495,17 @@ public class MonitorController : MonoBehaviour
 
         if (loadedPathSprites.TryGetValue(imagePath, out var cachedSprite))
             return cachedSprite;
+
+        string resourceRoomName = GetMonitorRoomResourceName(imagePath);
+        if (!string.IsNullOrEmpty(resourceRoomName))
+        {
+            var resSprite = Resources.Load<Sprite>($"MonitorRooms/{resourceRoomName}");
+            if (resSprite != null)
+            {
+                loadedPathSprites[imagePath] = resSprite;
+                return resSprite;
+            }
+        }
 
 #if UNITY_EDITOR
         var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(imagePath);
