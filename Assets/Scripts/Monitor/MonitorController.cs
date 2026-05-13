@@ -38,6 +38,11 @@ public class MonitorController : MonoBehaviour
     [SerializeField] private bool preferImageFeeds = true;
     [SerializeField] private MonitorImageFeed[] imageFeeds = new MonitorImageFeed[0];
 
+    [Header("Switch Static")]
+    [SerializeField] private Sprite switchStaticSprite;
+    [SerializeField] private string switchStaticImagePath;
+    [SerializeField, Min(0f)] private float switchStaticDuration = 0.2f;
+
     [Header("UI")]
     [SerializeField] private MonitorCameraUI monitorUIPrefab;
     private MonitorCameraUI monitorUIInstance;
@@ -68,6 +73,7 @@ public class MonitorController : MonoBehaviour
     private GameObject monitorCameraObject;
     private bool savedCursorVisible;
     private CursorLockMode savedCursorLockState;
+    private Coroutine switchStaticCoroutine;
 
     public bool IsMonitorOpen => isMonitorOpen;
     public MonitorMode CurrentMode => currentMode;
@@ -173,6 +179,7 @@ public class MonitorController : MonoBehaviour
         isMonitorOpen = false;
         isSignalLost = false;
         AudioManager.Instance.Play(SFX.MonitorClose);
+        StopSwitchStatic();
 
         HideUI();
         RestoreCursorAfterMonitor();
@@ -202,8 +209,8 @@ public class MonitorController : MonoBehaviour
             return;
 
         currentCameraIndex = (currentCameraIndex + 1) % monitorViews.Count;
-        ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
+        ShowCameraWithStatic(currentCameraIndex);
     }
 
     public void PrevCamera()
@@ -212,8 +219,59 @@ public class MonitorController : MonoBehaviour
             return;
 
         currentCameraIndex = (currentCameraIndex - 1 + monitorViews.Count) % monitorViews.Count;
-        ShowCamera(currentCameraIndex);
         AudioManager.Instance.Play(SFX.MonitorStatic);
+        ShowCameraWithStatic(currentCameraIndex);
+    }
+
+    private void ShowCameraWithStatic(int index)
+    {
+        StopSwitchStatic();
+
+        Sprite staticSprite = GetSwitchStaticSprite();
+        if (staticSprite == null || switchStaticDuration <= 0f || monitorUIInstance == null)
+        {
+            ShowCamera(index);
+            return;
+        }
+
+        switchStaticCoroutine = StartCoroutine(SwitchStaticCoroutine(index, staticSprite));
+    }
+
+    private IEnumerator SwitchStaticCoroutine(int index, Sprite staticSprite)
+    {
+        monitorUIInstance.SetSwitchStatic(staticSprite, true);
+        DisableMonitorCamera();
+
+        yield return new WaitForSecondsRealtime(switchStaticDuration);
+
+        switchStaticCoroutine = null;
+
+        if (!isMonitorOpen || isSignalLost)
+            yield break;
+
+        ShowCamera(index);
+        if (monitorUIInstance != null)
+            monitorUIInstance.SetSwitchStatic(null, false);
+    }
+
+    private void StopSwitchStatic()
+    {
+        if (switchStaticCoroutine != null)
+        {
+            StopCoroutine(switchStaticCoroutine);
+            switchStaticCoroutine = null;
+        }
+
+        if (monitorUIInstance != null)
+            monitorUIInstance.SetSwitchStatic(null, false);
+    }
+
+    private Sprite GetSwitchStaticSprite()
+    {
+        if (switchStaticSprite != null)
+            return switchStaticSprite;
+
+        return LoadSpriteFromPath(switchStaticImagePath);
     }
 
     private void ShowCamera(int index)

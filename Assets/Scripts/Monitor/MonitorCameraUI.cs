@@ -26,6 +26,7 @@ public class MonitorCameraUI : MonoBehaviour
     private Button closeButton;
 
     private Image cameraFeedImage;
+    private Image switchStaticImage;
     private CanvasGroup canvasGroup;
 
     private void Awake()
@@ -33,6 +34,7 @@ public class MonitorCameraUI : MonoBehaviour
         SetupCanvasGroup();
         SetupVisuals();
         SetupCameraFeedImage();
+        SetupSwitchStaticImage();
         SetupRoomNameText();
         SetupCloseButton();
         Hide();
@@ -60,6 +62,7 @@ public class MonitorCameraUI : MonoBehaviour
     {
         SetVisible(true);
         if (cameraFeedImage != null) cameraFeedImage.enabled = cameraFeedImage.sprite != null;
+        if (switchStaticImage != null) switchStaticImage.enabled = false;
         if (ui_monitoring_bg != null) ui_monitoring_bg.enabled = true;
         if (ui_monitoring_rec != null) ui_monitoring_rec.enabled = true;
         if (roomNameText != null) roomNameText.enabled = true;
@@ -69,6 +72,7 @@ public class MonitorCameraUI : MonoBehaviour
     public void Hide()
     {
         if (cameraFeedImage != null) cameraFeedImage.enabled = false;
+        if (switchStaticImage != null) switchStaticImage.enabled = false;
         if (ui_monitoring_bg != null) ui_monitoring_bg.enabled = false;
         if (ui_monitoring_rec != null) ui_monitoring_rec.enabled = false;
         if (roomNameText != null) roomNameText.enabled = false;
@@ -85,6 +89,17 @@ public class MonitorCameraUI : MonoBehaviour
 
         cameraFeedImage.sprite = feedSprite;
         cameraFeedImage.enabled = feedSprite != null && gameObject.activeInHierarchy;
+    }
+
+    public void SetSwitchStatic(Sprite staticSprite, bool visible)
+    {
+        SetupSwitchStaticImage();
+
+        if (switchStaticImage == null)
+            return;
+
+        switchStaticImage.sprite = staticSprite;
+        switchStaticImage.enabled = visible && staticSprite != null && gameObject.activeInHierarchy;
     }
 
     private void LateUpdate()
@@ -167,6 +182,33 @@ public class MonitorCameraUI : MonoBehaviour
         cameraFeedImage.color = Color.white;
         cameraFeedImage.raycastTarget = false;
         cameraFeedImage.transform.SetAsFirstSibling();
+    }
+
+    private void SetupSwitchStaticImage()
+    {
+        if (switchStaticImage == null)
+        {
+            var staticGo = new GameObject("switchStaticImage");
+            staticGo.transform.SetParent(transform, false);
+            switchStaticImage = staticGo.AddComponent<Image>();
+        }
+
+        if (switchStaticImage == null)
+            return;
+
+        var rt = switchStaticImage.rectTransform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = Vector2.zero;
+
+        switchStaticImage.type = Image.Type.Simple;
+        switchStaticImage.preserveAspect = false;
+        switchStaticImage.color = Color.white;
+        switchStaticImage.raycastTarget = false;
+        switchStaticImage.enabled = false;
+        switchStaticImage.transform.SetSiblingIndex(Mathf.Min(1, transform.childCount - 1));
     }
 
     private void SetupRoomNameText()
