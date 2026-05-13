@@ -11,6 +11,13 @@ public class KeyManager : MonoBehaviour
     public int totalKeys = KeyGameConfig.DefaultKeyCount;
 
     public TextMeshProUGUI keyText; // 类型改为 TextMeshProUGUI
+    public Image keyImage;
+
+    [Header("Key UI Sprites")]
+    [SerializeField] private Sprite zeroKeySprite;
+    [SerializeField] private Sprite oneKeySprite;
+    [SerializeField] private Sprite twoKeySprite;
+    [SerializeField] private Sprite threeKeySprite;
 
     void Start()
     {
@@ -19,7 +26,7 @@ public class KeyManager : MonoBehaviour
 
     public void CollectKey()
     {
-        keysCollected++;
+        keysCollected = Mathf.Clamp(keysCollected + 1, 0, totalKeys);
         UpdateKeyUI();
         AudioManager.Instance.Play(SFX.KeyFound);
 
@@ -37,6 +44,28 @@ public class KeyManager : MonoBehaviour
         {
             // 使用插值字符串更简洁
             keyText.text = $"Key Number : {keysCollected}";
+        }
+
+        if (keyImage != null)
+        {
+            Sprite sprite = GetKeySprite(keysCollected);
+            keyImage.sprite = sprite;
+            keyImage.enabled = sprite != null;
+        }
+    }
+
+    private Sprite GetKeySprite(int keyCount)
+    {
+        switch (Mathf.Clamp(keyCount, 0, totalKeys))
+        {
+            case 0:
+                return zeroKeySprite;
+            case 1:
+                return oneKeySprite;
+            case 2:
+                return twoKeySprite;
+            default:
+                return threeKeySprite;
         }
     }
 

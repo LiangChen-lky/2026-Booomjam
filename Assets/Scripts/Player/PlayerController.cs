@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -40,7 +39,19 @@ public class PlayerController : MonoBehaviour
 
     [field: Header("UI控件")]
     [field: SerializeField] public Slider HealthBar { get; private set; }
-    [field: SerializeField] public TextMeshProUGUI KeyNumberText { get; private set; }
+    [field: SerializeField] public Image HealthImage { get; private set; }
+    [field: SerializeField] public Image KeyNumberImage { get; private set; }
+
+    [Header("Health UI Sprites")]
+    [SerializeField] private Sprite zeroHealthSprite;
+    [SerializeField] private Sprite oneHealthSprite;
+    [SerializeField] private Sprite twoHealthSprite;
+
+    [Header("Key UI Sprites")]
+    [SerializeField] private Sprite zeroKeySprite;
+    [SerializeField] private Sprite oneKeySprite;
+    [SerializeField] private Sprite twoKeySprite;
+    [SerializeField] private Sprite threeKeySprite;
 
     [field: Header("玩家数据")]
     [field: SerializeField] public PlayerInfo Data { get; private set; }
@@ -184,8 +195,8 @@ public class PlayerController : MonoBehaviour
 
     public void AddKey(int key = 1)
     {
-        CurrentKey += key;
-        KeyNumberText.text = CurrentKey.ToString();
+        CurrentKey = Mathf.Clamp(CurrentKey + key, 0, KeyGameConfig.DefaultKeyCount);
+        SyncKeyUI();
     }
 
 
@@ -194,17 +205,69 @@ public class PlayerController : MonoBehaviour
         CurrentHealth = Data.MaxHealth;
         CurrentKey = 0;
         SyncHealthBarUI();
-        if (KeyNumberText != null)
-            KeyNumberText.text = CurrentKey.ToString();
+        SyncKeyUI();
     }
 
     private void SyncHealthBarUI()
     {
-        if (HealthBar == null) return;
         int max = Mathf.Max(1, Data.MaxHealth);
-        HealthBar.minValue = 0f;
-        HealthBar.maxValue = max;
-        HealthBar.value = Mathf.Clamp(CurrentHealth, 0, max);
+        int health = Mathf.Clamp(CurrentHealth, 0, max);
+
+        if (HealthBar != null)
+        {
+            HealthBar.minValue = 0f;
+            HealthBar.maxValue = max;
+            HealthBar.value = health;
+        }
+
+        if (HealthImage == null)
+        {
+            return;
+        }
+
+        Sprite sprite = GetHealthSprite(health);
+        HealthImage.sprite = sprite;
+        HealthImage.enabled = sprite != null;
+    }
+
+    private Sprite GetHealthSprite(int health)
+    {
+        switch (Mathf.Clamp(health, 0, 2))
+        {
+            case 0:
+                return zeroHealthSprite;
+            case 1:
+                return oneHealthSprite;
+            default:
+                return twoHealthSprite;
+        }
+    }
+
+    private void SyncKeyUI()
+    {
+        if (KeyNumberImage == null)
+        {
+            return;
+        }
+
+        Sprite sprite = GetKeySprite(CurrentKey);
+        KeyNumberImage.sprite = sprite;
+        KeyNumberImage.enabled = sprite != null;
+    }
+
+    private Sprite GetKeySprite(int keyCount)
+    {
+        switch (Mathf.Clamp(keyCount, 0, KeyGameConfig.DefaultKeyCount))
+        {
+            case 0:
+                return zeroKeySprite;
+            case 1:
+                return oneKeySprite;
+            case 2:
+                return twoKeySprite;
+            default:
+                return threeKeySprite;
+        }
     }
 
     /// <summary>与 <see cref="TryGetObjectInRange"/> 使用同一套范围检测，避免 Trigger 与 Box 不同步导致按键无效。</summary>
