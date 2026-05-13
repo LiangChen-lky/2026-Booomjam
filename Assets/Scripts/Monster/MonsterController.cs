@@ -12,76 +12,93 @@ public enum MonsterState
 [RequireComponent(typeof(AIPath))]
 public class MonsterController : MonoBehaviour
 {
-    [Header("配置")]
+    [Header("Config")]
     [SerializeField] private MonsterInfo data;
-    
-    [Header("引用")]
+
+    [Header("References")]
     [SerializeField] private Transform player;
     [SerializeField] private PlayerController playerController;
-    
-    [Header("调试")]
+
+    [Header("Debug")]
     [SerializeField] private MonsterState currentState = MonsterState.Wandering;
-    
-    [Header("开门设置")]
-    [SerializeField, Tooltip("怪物前方检测门的距离")]
+
+    [Header("Door")]
+    [SerializeField, Tooltip("Distance used to detect doors in front of the monster.")]
     private float doorDetectionRange = 1.5f;
 
-    [Header("怪物音效")]
-    [SerializeField, Tooltip("脚步声播放间隔（秒）")]
+    [Header("Path")]
+    [SerializeField, Tooltip("How close the monster must get to a waypoint before moving to the next one.")]
+    private float nextWaypointDistance = 0.2f;
+    [SerializeField, Tooltip("How often the monster refreshes its path while chasing.")]
+    private float trackingRepathInterval = 0.25f;
+    [SerializeField, Tooltip("Layers that block monster movement.")]
+    private LayerMask movementBlockMask;
+    [SerializeField, Tooltip("How often the monster requests a new path after its collider hits a wall.")]
+    private float blockedRepathInterval = 0.35f;
+
+    [Header("SFX")]
+    [SerializeField, Tooltip("Monster footstep interval in seconds.")]
     private float monsterFootstepInterval = 0.5f;
 
     private float lastMonsterFootstepTime;
 
-    [Header("BGM 切换")]
-    [SerializeField, Tooltip("怪物接近时切换 BGM 的距离")]
+    [Header("BGM")]
+    [SerializeField, Tooltip("Distance at which the monster-near BGM starts.")]
     private float bgmNearDistance = 15f;
 
+    private const int MaxWanderPointAttempts = 12;
+    private const float MinWanderPointDistance = 1f;
+
     private AIPath aiPath;
+    private Seeker seeker;
+    private Rigidbody2D rb;
+    private Collider2D bodyCollider;
     private float lastAttackTime;
     private float lastWanderTime;
     private Vector2 wanderTarget;
-    private bool hasWanderTarget = false;
-    private HashSet<int> openedDoorIds = new HashSet<int>();
+    private bool hasWanderTarget;
+    private readonly HashSet<int> openedDoorIds = new HashSet<int>();
     private BGM lastBGMState = BGM.None;
-    
+
+    private List<Vector3> currentPath;
+    private int currentWaypoint;
+    private bool pathPending;
+    private float lastPathRequestTime = float.NegativeInfinity;
+    private Vector3 currentDestination;
+    private bool hasDestination;
+    private readonly RaycastHit2D[] movementHits = new RaycastHit2D[8];
+    private float lastBlockedRepathTime = float.NegativeInfinity;
+
     private void Awake()
     {
         aiPath = GetComponent<AIPath>();
+        seeker = GetComponent<Seeker>();
+        rb = GetComponent<Rigidbody2D>();
+        bodyCollider = GetComponent<Collider2D>();
     }
-    
+
     private void Start()
     {
         if (data == null)
         {
-            // Debug.LogError("[MonsterController] MonsterInfo data is not assigned!");
             enabled = false;
             return;
         }
 
-        aiPath.maxSpeed = data.moveSpeed;
-        aiPath.enableRotation = false;
-        aiPath.simulateMovement = true;
-        aiPath.canSearch = true;
-        
-// #if UNITY_EDITOR
-//         Debug.Log($"[MonsterController] 初始化完成 - maxSpeed: {aiPath.maxSpeed}, canMove: {aiPath.canMove}, canSearch: {aiPath.canSearch}");
-//         Debug.Log($"[MonsterController] 怪物位置: {transform.position}");
-//         
-//         // 检查是否在寻路网格上
-//         var node = AstarPath.active.GetNearest(transform.position);
-//         if (node.node != null)
-//         {
-//             Debug.Log($"[MonsterController] 最近节点位置: {(Vector3)node.node.position}");
-//         }
-//         else
-//         {
-//             Debug.LogError("[MonsterController] 找不到附近的寻路节点！怪物不在寻路网格上！");
-//         }
-// #endif
-        
+        // We use Seeker for path calculation, and move in XY ourselves to avoid AIPath 2D/3D orientation issues.
+        aiPath.isStopped = true;
+        aiPath.canSearch = false;
+        aiPath.simulateMovement = false;
+        aiPath.enabled = false;
+
+        if (movementBlockMask.value == 0)
+        {
+            movementBlockMask = LayerMask.GetMask("Default", "Obstacle");
+        }
+
         SwitchToWandering();
     }
-    
+
     private void Update()
     {
         UpdateBGMState();
@@ -95,14 +112,15 @@ public class MonsterController : MonoBehaviour
                 WanderingUpdate();
                 break;
         }
+
+        MoveAlongPath(Time.deltaTime);
     }
-    
+
     private void CheckPlayerState()
     {
         if (playerController == null || player == null) return;
-        
+
         float distanceToPlayer = Vector2.Distance(transform.position, player.position);
-        
         if (playerController.IsInteracting || distanceToPlayer > data.trackingRange)
         {
             if (currentState == MonsterState.Tracking)
@@ -110,39 +128,33 @@ public class MonsterController : MonoBehaviour
                 SwitchToWandering();
             }
         }
-        else
+        else if (currentState == MonsterState.Wandering && distanceToPlayer <= data.trackingRange)
         {
-            if (currentState == MonsterState.Wandering && distanceToPlayer <= data.trackingRange)
-            {
-                SwitchToTracking();
-            }
+            SwitchToTracking();
         }
     }
-    
+
     private void SwitchToTracking()
     {
         currentState = MonsterState.Tracking;
         hasWanderTarget = false;
+        ClearCurrentPath();
 
-        // 播放发现玩家咆哮音效
         AudioManager.Instance.PlayAtPosition(SFX.MonsterGrowl, transform.position);
         AudioManager.Instance.PlayAtPosition(SFX.MonsterChase, transform.position);
     }
-    
+
     private void SwitchToWandering()
     {
         currentState = MonsterState.Wandering;
         hasWanderTarget = false;
         lastWanderTime = Time.time;
+        ClearCurrentPath();
         SetNewWanderPoint();
-// #if UNITY_EDITOR
-//         Debug.Log("怪物切换到漫游状态");
-// #endif
     }
-    
+
     private void TrackingUpdate()
     {
-        // 追踪状态脚步声
         if (Time.time - lastMonsterFootstepTime >= monsterFootstepInterval)
         {
             lastMonsterFootstepTime = Time.time;
@@ -150,139 +162,336 @@ public class MonsterController : MonoBehaviour
         }
 
         CheckPlayerState();
-        
+
         if (currentState != MonsterState.Tracking) return;
         if (player == null) return;
-        
-        // 检测前方是否有门，自动开门
+
         CheckForDoor();
-        
-        // 设置寻路目标为玩家位置
-        aiPath.destination = player.position;
-        
-// #if UNITY_EDITOR
-//         // 调试信息
-//         if (Time.frameCount % 60 == 0) // 每60帧输出一次
-//         {
-//             Debug.Log($"[Monster] State: {currentState}, Pos: {transform.position}, Dest: {aiPath.destination}, Velocity: {aiPath.velocity}, Remaining: {aiPath.remainingDistance}");
-//         }
-// #endif
-        
-        // 如果寻路失败（Remaining为Infinity），使用直接移动
-        if (float.IsInfinity(aiPath.remainingDistance))
+        if (Time.time - lastPathRequestTime >= trackingRepathInterval || !hasDestination)
         {
-            // 直接朝玩家方向移动
-            Vector2 direction = ((Vector2)player.position - (Vector2)transform.position).normalized;
-            transform.position += (Vector3)(direction * data.moveSpeed * Time.deltaTime);
+            RequestPathToNearestWalkable(player.position);
         }
-        
-        // 检测是否到达攻击范围
+
         float distanceToPlayer = Vector2.Distance(transform.position, player.position);
         if (distanceToPlayer <= data.attackRange)
         {
             TryAttackPlayer();
         }
     }
-    
+
     private void WanderingUpdate()
     {
-        // 漫游状态脚步声（间隔更长）
-        if (aiPath.velocity.sqrMagnitude > 0.1f && Time.time - lastMonsterFootstepTime >= monsterFootstepInterval * 1.5f)
+        if (IsMoving() && Time.time - lastMonsterFootstepTime >= monsterFootstepInterval * 1.5f)
         {
             lastMonsterFootstepTime = Time.time;
             AudioManager.Instance.PlayAtPosition(SFX.MonsterFootstep, transform.position);
         }
 
         CheckPlayerState();
-        
+
         if (currentState != MonsterState.Wandering) return;
-        
-        // 检查是否需要设置新的漫游点
-        bool needNewTarget = !hasWanderTarget || aiPath.reachedDestination || float.IsInfinity(aiPath.remainingDistance);
-        
-        if (needNewTarget)
+
+        bool reachedWanderTarget = hasWanderTarget && !IsFollowingPath();
+        if ((!hasWanderTarget || reachedWanderTarget) && Time.time - lastWanderTime >= data.wanderInterval)
         {
-            if (Time.time - lastWanderTime >= data.wanderInterval)
+            SetNewWanderPoint();
+            lastWanderTime = Time.time;
+        }
+    }
+
+    private void SetNewWanderPoint()
+    {
+        for (int i = 0; i < MaxWanderPointAttempts; i++)
+        {
+            Vector2 randomOffset = Random.insideUnitCircle * data.wanderRadius;
+            if (randomOffset.sqrMagnitude < MinWanderPointDistance * MinWanderPointDistance)
             {
-                SetNewWanderPoint();
-                lastWanderTime = Time.time;
+                continue;
+            }
+
+            Vector3 candidate = transform.position + (Vector3)randomOffset;
+            if (!TryGetNearestWalkablePoint(candidate, out Vector3 walkableTarget))
+            {
+                continue;
+            }
+
+            if (Vector2.Distance(transform.position, walkableTarget) < MinWanderPointDistance)
+            {
+                continue;
+            }
+
+            wanderTarget = walkableTarget;
+            hasWanderTarget = true;
+            RequestPath(wanderTarget);
+            return;
+        }
+
+        hasWanderTarget = false;
+        ClearCurrentPath();
+    }
+
+    private void RequestPathToNearestWalkable(Vector3 target)
+    {
+        if (TryGetNearestWalkablePoint(target, out Vector3 walkableTarget))
+        {
+            RequestPath(walkableTarget);
+        }
+    }
+
+    private void RequestPath(Vector3 target)
+    {
+        if (seeker == null || pathPending) return;
+        if (hasDestination && Vector2.Distance(currentDestination, target) < 0.05f && IsFollowingPath()) return;
+
+        currentDestination = target;
+        hasDestination = true;
+        pathPending = true;
+        lastPathRequestTime = Time.time;
+        seeker.StartPath(transform.position, target, OnPathComplete);
+    }
+
+    private void OnPathComplete(Path path)
+    {
+        pathPending = false;
+        if (path == null || path.error || path.vectorPath == null || path.vectorPath.Count == 0)
+        {
+            ClearCurrentPath();
+            if (currentState == MonsterState.Wandering)
+            {
+                hasWanderTarget = false;
+            }
+            return;
+        }
+
+        currentPath = BuildPathPoints(path);
+        currentWaypoint = 0;
+        AdvancePastReachedWaypoints();
+    }
+
+    private void MoveAlongPath(float deltaTime)
+    {
+        if (!IsFollowingPath()) return;
+
+        AdvancePastReachedWaypoints();
+        if (!IsFollowingPath()) return;
+
+        Vector3 current = transform.position;
+        Vector3 target = currentPath[currentWaypoint];
+        target.z = current.z;
+
+        Vector3 desiredNext = Vector3.MoveTowards(current, target, data.moveSpeed * deltaTime);
+        if (!TryGetUnblockedPosition(current, desiredNext, out Vector3 next))
+        {
+            RequestBlockedRepath();
+            return;
+        }
+
+        if (rb != null)
+        {
+            rb.MovePosition(next);
+        }
+        else
+        {
+            transform.position = next;
+        }
+    }
+
+    private List<Vector3> BuildPathPoints(Path path)
+    {
+        List<Vector3> points = new List<Vector3>();
+        if (path.path != null && path.path.Count > 0)
+        {
+            for (int i = 0; i < path.path.Count; i++)
+            {
+                AddPathPoint(points, (Vector3)path.path[i].position);
             }
         }
-        
-        // 如果寻路失败（Remaining为Infinity），使用直接移动
-        if (float.IsInfinity(aiPath.remainingDistance) && hasWanderTarget)
+        else
         {
-            Vector2 direction = (wanderTarget - (Vector2)transform.position).normalized;
-            transform.position += (Vector3)(direction * data.moveSpeed * Time.deltaTime);
-            
-            // 检查是否到达目标点
-            float distanceToTarget = Vector2.Distance(transform.position, wanderTarget);
-            if (distanceToTarget < 0.5f)
+            for (int i = 0; i < path.vectorPath.Count; i++)
+            {
+                AddPathPoint(points, path.vectorPath[i]);
+            }
+        }
+
+        return points;
+    }
+
+    private void AddPathPoint(List<Vector3> points, Vector3 point)
+    {
+        point.z = transform.position.z;
+        if (points.Count == 0 || Vector2.Distance(points[points.Count - 1], point) > nextWaypointDistance * 0.5f)
+        {
+            points.Add(point);
+        }
+    }
+
+    private bool TryGetUnblockedPosition(Vector3 current, Vector3 desiredNext, out Vector3 next)
+    {
+        next = desiredNext;
+        Vector2 delta = desiredNext - current;
+        float distance = delta.magnitude;
+        if (distance <= Mathf.Epsilon || movementBlockMask.value == 0)
+        {
+            return true;
+        }
+
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(movementBlockMask);
+        filter.useTriggers = false;
+
+        int hitCount = 0;
+        Vector2 direction = delta / distance;
+        if (bodyCollider != null)
+        {
+            hitCount = bodyCollider.Cast(direction, filter, movementHits, distance + 0.02f);
+        }
+        else
+        {
+            hitCount = Physics2D.Raycast(current, direction, filter, movementHits, distance + 0.02f);
+        }
+
+        float allowedDistance = distance;
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = movementHits[i].collider;
+            if (hitCollider == null || hitCollider.isTrigger) continue;
+            if (bodyCollider != null && hitCollider == bodyCollider) continue;
+            if (rb != null && hitCollider.attachedRigidbody == rb) continue;
+
+            allowedDistance = Mathf.Min(allowedDistance, Mathf.Max(0f, movementHits[i].distance - 0.02f));
+        }
+
+        if (allowedDistance <= 0.001f)
+        {
+            return false;
+        }
+
+        next = current + (Vector3)(direction * allowedDistance);
+        return true;
+    }
+
+    private void RequestBlockedRepath()
+    {
+        if (!hasDestination || pathPending) return;
+        if (Time.time - lastBlockedRepathTime < blockedRepathInterval) return;
+
+        lastBlockedRepathTime = Time.time;
+        ClearCurrentPath(false);
+        RequestPathToNearestWalkable(currentDestination);
+    }
+
+    private void AdvancePastReachedWaypoints()
+    {
+        while (currentPath != null && currentWaypoint < currentPath.Count)
+        {
+            Vector3 waypoint = currentPath[currentWaypoint];
+            waypoint.z = transform.position.z;
+            if (Vector2.Distance(transform.position, waypoint) > nextWaypointDistance)
+            {
+                break;
+            }
+
+            currentWaypoint++;
+        }
+
+        if (currentPath != null && currentWaypoint >= currentPath.Count)
+        {
+            ClearCurrentPath();
+            if (currentState == MonsterState.Wandering)
             {
                 hasWanderTarget = false;
             }
         }
     }
-    
-    private void SetNewWanderPoint()
+
+    private bool IsFollowingPath()
     {
-        // 在当前位置周围随机选择一个点
-        Vector2 randomDirection = Random.insideUnitCircle.normalized;
-        wanderTarget = (Vector2)transform.position + randomDirection * data.wanderRadius;
-        
-        // 设置寻路目标
-        aiPath.destination = wanderTarget;
-        hasWanderTarget = true;
+        return currentPath != null && currentWaypoint < currentPath.Count;
     }
-    
-    // 检测前方是否有门
+
+    private bool IsMoving()
+    {
+        return IsFollowingPath() || pathPending;
+    }
+
+    private void ClearCurrentPath()
+    {
+        ClearCurrentPath(true);
+    }
+
+    private void ClearCurrentPath(bool clearDestination)
+    {
+        if (pathPending && seeker != null)
+        {
+            seeker.CancelCurrentPathRequest();
+        }
+
+        currentPath = null;
+        currentWaypoint = 0;
+        pathPending = false;
+        if (clearDestination)
+        {
+            hasDestination = false;
+        }
+    }
+
+    private bool TryGetNearestWalkablePoint(Vector3 position, out Vector3 walkablePoint)
+    {
+        walkablePoint = position;
+        if (AstarPath.active == null)
+        {
+            return true;
+        }
+
+        NNInfo nearest = AstarPath.active.GetNearest(position, NearestNodeConstraint.Walkable);
+        if (nearest.node == null)
+        {
+            return false;
+        }
+
+        walkablePoint = nearest.position;
+        walkablePoint.z = transform.position.z;
+        return true;
+    }
+
     private void CheckForDoor()
     {
         if (player == null) return;
-        
+
         Vector2 direction = ((Vector2)player.position - (Vector2)transform.position).normalized;
-        
-        // 使用 OverlapCircle 检测门，因为门可能只有 Trigger 碰撞体
         Collider2D[] hits = Physics2D.OverlapCircleAll(
             transform.position,
             doorDetectionRange,
             LayerMask.GetMask("Default")
         );
-        
-        foreach (var hit in hits)
-        {
-            if (hit != null && hit.CompareTag("Door"))
-            {
-                var doorComponent = hit.GetComponent<Door>();
-                if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen))
-                {
-                    continue;
-                }
 
-                // 检查门是否在玩家方向
-                Vector2 doorDir = ((Vector2)hit.transform.position - (Vector2)transform.position).normalized;
-                float dot = Vector2.Dot(direction, doorDir);
-                
-                // 只处理前方的门（dot > 0.5 表示在前方约 60 度范围内）
-                if (dot > 0.5f)
-                {
-                    int doorId = hit.GetInstanceID();
-                    // 只打开未开的门
-                    if (!openedDoorIds.Contains(doorId))
-                    {
-                        OpenDoor(hit.gameObject);
-                    }
-                }
+        foreach (Collider2D hit in hits)
+        {
+            if (hit == null || !hit.CompareTag("Door")) continue;
+
+            Door doorComponent = hit.GetComponent<Door>();
+            if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen))
+            {
+                continue;
+            }
+
+            Vector2 doorDir = ((Vector2)hit.transform.position - (Vector2)transform.position).normalized;
+            float dot = Vector2.Dot(direction, doorDir);
+            if (dot <= 0.5f) continue;
+
+            int doorId = hit.GetInstanceID();
+            if (!openedDoorIds.Contains(doorId))
+            {
+                OpenDoor(hit.gameObject);
             }
         }
     }
-    
-    // 开门
+
     private void OpenDoor(GameObject door)
     {
         int doorId = door.GetInstanceID();
-
-        var doorComponent = door.GetComponent<Door>();
+        Door doorComponent = door.GetComponent<Door>();
         if (doorComponent != null)
         {
             if (!doorComponent.CanMonsterOpen || doorComponent.IsOpen) return;
@@ -290,51 +499,48 @@ public class MonsterController : MonoBehaviour
         }
         else
         {
-            // 更新 SpriteRenderer 透明度
-            var sr = door.GetComponentInChildren<SpriteRenderer>(true);
+            SpriteRenderer sr = door.GetComponentInChildren<SpriteRenderer>(true);
             if (sr != null)
             {
                 Color c = sr.color;
-                c.a = 0.7f; // 与 PlayerController.doorOpenedSpriteAlpha 一致
+                c.a = 0.7f;
                 sr.color = c;
             }
 
-            // 禁用物理碰撞体（保留 Trigger 用于交互检测）
-            foreach (var col in door.GetComponentsInChildren<Collider2D>(true))
+            foreach (Collider2D col in door.GetComponentsInChildren<Collider2D>(true))
             {
                 if (!col.isTrigger)
+                {
                     col.enabled = false;
+                }
             }
         }
 
-        // 记录已开门 ID
         openedDoorIds.Add(doorId);
-
-        // 播放开门音效
         AudioManager.Instance.PlayAtPosition(SFX.DoorOpen, transform.position);
         AudioManager.Instance.PlayAtPosition(SFX.MonsterWallHit, transform.position);
+        if (hasDestination)
+        {
+            RequestPathToNearestWalkable(currentDestination);
+        }
     }
-    
+
     private void TryAttackPlayer()
     {
         if (playerController == null) return;
         if (Time.time - lastAttackTime < data.attackCooldown) return;
-        
+
         lastAttackTime = Time.time;
         playerController.TakeDamage((int)data.attackDamage);
         AudioManager.Instance.Play(SFX.PlayerHit);
-// #if UNITY_EDITOR
-//         Debug.Log("怪物攻击玩家");
-// #endif
     }
-    
+
     private void UpdateBGMState()
     {
         if (player == null) return;
 
         float distance = Vector2.Distance(transform.position, player.position);
         BGM desiredBGM = distance <= bgmNearDistance ? BGM.MonsterNear : BGM.Exploration;
-
         if (desiredBGM != lastBGMState)
         {
             lastBGMState = desiredBGM;
@@ -344,22 +550,20 @@ public class MonsterController : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        // 绘制追踪范围
+        if (data == null) return;
+
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, data.trackingRange);
-        
-        // 绘制攻击范围
+
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, data.attackRange);
-        
-        // 绘制漫游范围
+
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(transform.position, data.wanderRadius);
-        
-        // 绘制门检测范围
+
         Gizmos.color = Color.green;
-        Vector2 dir = player != null ? 
-            ((Vector2)player.position - (Vector2)transform.position).normalized : 
+        Vector2 dir = player != null ?
+            ((Vector2)player.position - (Vector2)transform.position).normalized :
             (Vector2)transform.right;
         Gizmos.DrawRay(transform.position, dir * doorDetectionRange);
     }
