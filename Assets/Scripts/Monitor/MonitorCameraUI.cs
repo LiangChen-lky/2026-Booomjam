@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Monitor terminal overlay.
-/// Handles signal-loss overlay, image feed, and Z/X camera switching input.
+/// Handles signal-loss overlay and image feed display.
 /// </summary>
 public class MonitorCameraUI : MonoBehaviour
 {
@@ -27,6 +27,7 @@ public class MonitorCameraUI : MonoBehaviour
 
     private Image cameraFeedImage;
     private Image switchStaticImage;
+    private readonly System.Collections.Generic.List<Image> trackedBlipImages = new System.Collections.Generic.List<Image>();
     private CanvasGroup canvasGroup;
 
     private void Awake()
@@ -47,17 +48,6 @@ public class MonitorCameraUI : MonoBehaviour
             closeButton.onClick.RemoveListener(OnCloseButtonClicked);
     }
 
-    private void Update()
-    {
-        var monitor = MonitorController.Instance;
-        if (monitor == null || !monitor.IsMonitorOpen) return;
-
-        if (Input.GetKeyDown(KeyCode.Z))
-            monitor.PrevCamera();
-        if (Input.GetKeyDown(KeyCode.X))
-            monitor.NextCamera();
-    }
-
     public void Show()
     {
         SetVisible(true);
@@ -73,6 +63,7 @@ public class MonitorCameraUI : MonoBehaviour
     {
         if (cameraFeedImage != null) cameraFeedImage.enabled = false;
         if (switchStaticImage != null) switchStaticImage.enabled = false;
+        SetTrackedBlips(null, 0);
         if (ui_monitoring_bg != null) ui_monitoring_bg.enabled = false;
         if (ui_monitoring_rec != null) ui_monitoring_rec.enabled = false;
         if (roomNameText != null) roomNameText.enabled = false;
@@ -100,6 +91,39 @@ public class MonitorCameraUI : MonoBehaviour
 
         switchStaticImage.sprite = staticSprite;
         switchStaticImage.enabled = visible && staticSprite != null && gameObject.activeInHierarchy;
+    }
+
+    public void SetTrackedBlips(System.Collections.Generic.IList<MonitorController.MonitorTrackedBlip> blips, int count)
+    {
+        SetupCameraFeedImage();
+
+        int visibleCount = blips != null ? Mathf.Clamp(count, 0, blips.Count) : 0;
+        EnsureTrackedBlipImages(visibleCount);
+
+        RectTransform feedRect = cameraFeedImage != null ? cameraFeedImage.rectTransform : null;
+        for (int i = 0; i < trackedBlipImages.Count; i++)
+        {
+            var blipImage = trackedBlipImages[i];
+            if (blipImage == null)
+                continue;
+
+            bool visible = i < visibleCount && gameObject.activeInHierarchy && feedRect != null;
+            blipImage.enabled = visible;
+            if (!visible)
+                continue;
+
+            var blip = blips[i];
+            blipImage.color = blip.color;
+
+            RectTransform rt = blipImage.rectTransform;
+            rt.SetParent(feedRect, false);
+            Vector2 displayPosition = GetFeedDisplayPosition(blip.normalizedPosition, feedRect);
+            rt.anchorMin = displayPosition;
+            rt.anchorMax = displayPosition;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(blip.size, blip.size);
+        }
     }
 
     private void LateUpdate()
@@ -182,6 +206,53 @@ public class MonitorCameraUI : MonoBehaviour
         cameraFeedImage.color = Color.white;
         cameraFeedImage.raycastTarget = false;
         cameraFeedImage.transform.SetAsFirstSibling();
+    }
+
+    private Vector2 GetFeedDisplayPosition(Vector2 normalizedPosition, RectTransform feedRect)
+    {
+        if (cameraFeedImage == null || cameraFeedImage.sprite == null || feedRect == null)
+            return normalizedPosition;
+
+        Rect rect = feedRect.rect;
+        if (rect.width <= 0.01f || rect.height <= 0.01f)
+            return normalizedPosition;
+
+        Rect spriteRect = cameraFeedImage.sprite.rect;
+        if (spriteRect.width <= 0.01f || spriteRect.height <= 0.01f)
+            return normalizedPosition;
+
+        float feedAspect = rect.width / rect.height;
+        float spriteAspect = spriteRect.width / spriteRect.height;
+        Vector2 displayPosition = normalizedPosition;
+
+        if (spriteAspect > feedAspect)
+        {
+            float displayedHeight = feedAspect / spriteAspect;
+            float verticalPadding = (1f - displayedHeight) * 0.5f;
+            displayPosition.y = verticalPadding + normalizedPosition.y * displayedHeight;
+        }
+        else
+        {
+            float displayedWidth = spriteAspect / feedAspect;
+            float horizontalPadding = (1f - displayedWidth) * 0.5f;
+            displayPosition.x = horizontalPadding + normalizedPosition.x * displayedWidth;
+        }
+
+        return displayPosition;
+    }
+
+    private void EnsureTrackedBlipImages(int count)
+    {
+        while (trackedBlipImages.Count < count)
+        {
+            var blipGo = new GameObject("trackedBlip");
+            blipGo.transform.SetParent(cameraFeedImage != null ? cameraFeedImage.transform : transform, false);
+            var blipImage = blipGo.AddComponent<Image>();
+            blipImage.sprite = EnsureSprite(null);
+            blipImage.type = Image.Type.Simple;
+            blipImage.raycastTarget = false;
+            trackedBlipImages.Add(blipImage);
+        }
     }
 
     private void SetupSwitchStaticImage()
@@ -283,6 +354,8 @@ public class MonitorCameraUI : MonoBehaviour
                 return "大厅";
             case "Toilet":
                 return "厕所";
+            case "Guardroom":
+                return "禁闭室";
             default:
                 return roomName;
         }

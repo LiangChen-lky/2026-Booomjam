@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -26,16 +27,43 @@ public class MonitorController : MonoBehaviour
         public bool enabled = true;
     }
 
+    private static readonly string[] FixedMonitorRooms =
+    {
+        "Hall",
+        "Dorm",
+        "Classroom",
+        "Toilet",
+        "Guardroom"
+    };
+
+    private static readonly string[] DefaultImageFeedPaths =
+    {
+        "Assets/Sprites/\u573A\u666F/Hall.png",
+        "Assets/Sprites/\u573A\u666F/Dorm.png",
+        "Assets/Sprites/\u573A\u666F/Classroom.png",
+        "Assets/Sprites/\u573A\u666F/Toilet.jpg",
+        "Assets/Sprites/\u573A\u666F/\u65E0\u95E8/Cuardroom.png"
+    };
+    private static readonly Dictionary<string, Sprite> loadedPathSprites = new Dictionary<string, Sprite>();
+
+    public struct MonitorTrackedBlip
+    {
+        public Vector2 normalizedPosition;
+        public Color color;
+        public float size;
+    }
+
     [Header("Monitor Settings")]
     [SerializeField] private float cameraHeight = 30f;
     [SerializeField] private float cameraOrthoSize = 12f;
     [SerializeField] private float cooldownDuration = 5f;
     [SerializeField] private float signalLostChance = 0.1f;
     [SerializeField] private float signalRecoverTime = 3f;
-    [SerializeField] private MonitorMode currentMode = MonitorMode.Camera;
+    [SerializeField] private MonitorMode currentMode = MonitorMode.Image;
+    [SerializeField] private string[] includedCameraRooms = { "Hall", "Dorm", "Classroom", "Toilet" };
+    [SerializeField, Min(0f)] private float roomBoundsPadding = 1f;
 
     [Header("Image Feeds")]
-    [SerializeField] private bool preferImageFeeds = true;
     [SerializeField] private MonitorImageFeed[] imageFeeds = new MonitorImageFeed[0];
 
     [Header("Switch Static")]
@@ -57,6 +85,9 @@ public class MonitorController : MonoBehaviour
         public float fieldOfView;
         public Sprite image;
         public bool usesImage;
+        public string imageSourcePath;
+        public Bounds roomBounds;
+        public bool hasRoomBounds;
     }
 
     private readonly List<MonitorView> monitorViews = new List<MonitorView>();
@@ -68,12 +99,16 @@ public class MonitorController : MonoBehaviour
     private string savedRoom;
     private PlayerController playerRef;
     private MonsterController monsterRef;
+    private PlayerController trackedPlayer;
+    private MonsterController trackedMonster;
+    private TravelBag[] trackedBags;
     private Camera mainCamera;
     private Camera monitorCamera;
     private GameObject monitorCameraObject;
     private bool savedCursorVisible;
     private CursorLockMode savedCursorLockState;
     private Coroutine switchStaticCoroutine;
+    private bool hasLoggedBuiltViews;
 
     public bool IsMonitorOpen => isMonitorOpen;
     public MonitorMode CurrentMode => currentMode;
@@ -109,10 +144,19 @@ public class MonitorController : MonoBehaviour
 
     private void Update()
     {
-        if (!Input.GetKeyDown(KeyCode.R))
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            ToggleMonitor();
+            return;
+        }
+
+        if (!isMonitorOpen || isSignalLost)
             return;
 
-        ToggleMonitor();
+        if (Input.GetKeyDown(KeyCode.Z))
+            PrevCamera();
+        else if (Input.GetKeyDown(KeyCode.X))
+            NextCamera();
     }
 
     public void ToggleMonitor()
@@ -151,11 +195,13 @@ public class MonitorController : MonoBehaviour
         if (camRoomManager != null)
             savedRoom = camRoomManager.currentRoom;
 
-        monsterRef = FindObjectOfType<MonsterController>();
+        CacheTrackedObjects();
+
+        monsterRef = trackedMonster;
         if (monsterRef != null)
             monsterRef.enabled = false;
 
-        playerRef = FindObjectOfType<PlayerController>();
+        playerRef = trackedPlayer;
         if (playerRef != null)
             playerRef.Input.DisablePlayerMoveInput();
 
@@ -201,6 +247,14 @@ public class MonitorController : MonoBehaviour
         isOnCooldown = true;
         lastCloseTime = Time.unscaledTime;
         StartCoroutine(CooldownCoroutine());
+    }
+
+    private void LateUpdate()
+    {
+        if (!isMonitorOpen || isSignalLost || monitorUIInstance == null)
+            return;
+
+        UpdateTrackedBlips();
     }
 
     public void NextCamera()
@@ -285,7 +339,11 @@ public class MonitorController : MonoBehaviour
         {
             DisableMonitorCamera();
             if (monitorUIInstance != null)
+            {
+                LogShownView(index, view);
                 monitorUIInstance.SetCameraFeed(view.image);
+                UpdateTrackedBlips();
+            }
 
             return;
         }
@@ -315,33 +373,56 @@ public class MonitorController : MonoBehaviour
     {
         monitorViews.Clear();
 
-        if ((preferImageFeeds || currentMode == MonitorMode.Image) && TryBuildViewsFromImageFeeds())
+        BuildDefaultImageViews();
+        SortMonitorViews();
+
+        if (monitorViews.Count > 0)
         {
+            LogBuiltViewsOnce();
             return;
         }
 
-        if (currentMode == MonitorMode.Image)
-        {
-            Debug.LogWarning("[MonitorController] Monitor is in Image mode but no image feeds are configured.");
-            return;
-        }
-
-        if (TryBuildViewsFromRoomManager())
-        {
-            return;
-        }
-
-        BuildViewsFromRoomBounds();
+        Debug.LogWarning("[MonitorController] No fixed monitor rooms could be built.");
     }
 
-    private bool TryBuildViewsFromImageFeeds()
+    private void LogBuiltViewsOnce()
+    {
+        if (hasLoggedBuiltViews)
+            return;
+
+        hasLoggedBuiltViews = true;
+        Debug.Log($"[MonitorController] Built {monitorViews.Count} monitor views: {string.Join(", ", GetBuiltViewNames())}");
+    }
+
+    private void LogShownView(int index, MonitorView view)
+    {
+        string spriteInfo = view.image != null
+            ? $"{view.image.name} {view.image.rect.width}x{view.image.rect.height}"
+            : "<null>";
+        Debug.Log($"[MonitorController] Showing view {index + 1}/{monitorViews.Count}: {view.roomName}, sprite={spriteInfo}, source={view.imageSourcePath}");
+    }
+
+    private string[] GetBuiltViewNames()
+    {
+        var names = new string[monitorViews.Count];
+        for (int i = 0; i < monitorViews.Count; i++)
+            names[i] = monitorViews[i].roomName;
+
+        return names;
+    }
+
+    private void BuildViewsFromImageFeeds()
     {
         if (imageFeeds == null || imageFeeds.Length == 0)
-            return false;
+            return;
 
+        var roomBounds = BuildRoomBoundsMap();
         foreach (var feed in imageFeeds)
         {
             if (feed == null || !feed.enabled)
+                continue;
+
+            if (!ShouldIncludeCameraRoom(feed.roomName))
                 continue;
 
             Sprite feedImage = feed.image != null ? feed.image : LoadSpriteFromPath(feed.imagePath);
@@ -351,19 +432,45 @@ public class MonitorController : MonoBehaviour
                 continue;
             }
 
-            monitorViews.Add(new MonitorView
-            {
-                roomName = string.IsNullOrWhiteSpace(feed.roomName) ? feedImage.name : feed.roomName,
-                image = feedImage,
-                usesImage = true,
-                rotation = Quaternion.identity,
-                orthographic = true,
-                orthographicSize = cameraOrthoSize,
-                fieldOfView = 60f
-            });
+            string roomName = string.IsNullOrWhiteSpace(feed.roomName) ? feedImage.name : feed.roomName;
+            AddImageMonitorView(roomName, feedImage, roomBounds, feed.imagePath);
         }
+    }
 
-        return monitorViews.Count > 0;
+    private void BuildDefaultImageViews()
+    {
+        var roomBounds = BuildRoomBoundsMap();
+        int roomCount = FixedMonitorRooms.Length;
+        for (int i = 0; i < roomCount && i < DefaultImageFeedPaths.Length; i++)
+        {
+            string roomName = FixedMonitorRooms[i];
+            Sprite feedImage = LoadSpriteFromPath(DefaultImageFeedPaths[i]);
+            if (feedImage == null)
+            {
+                Debug.LogWarning($"[MonitorController] Default image feed '{roomName}' has no sprite: {DefaultImageFeedPaths[i]}");
+                feedImage = CreateFallbackRoomSprite(roomName);
+            }
+
+            AddImageMonitorView(roomName, feedImage, roomBounds, DefaultImageFeedPaths[i]);
+        }
+    }
+
+    private void AddImageMonitorView(string roomName, Sprite feedImage, Dictionary<string, Bounds> roomBounds, string imageSourcePath)
+    {
+        bool hasRoomBounds = roomBounds.TryGetValue(roomName, out Bounds bounds);
+        monitorViews.Add(new MonitorView
+        {
+            roomName = roomName,
+            image = feedImage,
+            usesImage = true,
+            rotation = Quaternion.identity,
+            orthographic = true,
+            orthographicSize = cameraOrthoSize,
+            fieldOfView = 60f,
+            imageSourcePath = imageSourcePath,
+            roomBounds = bounds,
+            hasRoomBounds = hasRoomBounds
+        });
     }
 
     private static Sprite LoadSpriteFromPath(string imagePath)
@@ -371,11 +478,73 @@ public class MonitorController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(imagePath))
             return null;
 
+        if (loadedPathSprites.TryGetValue(imagePath, out var cachedSprite))
+            return cachedSprite;
+
 #if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(imagePath);
-#else
-        return null;
+        var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(imagePath);
+        if (sprite != null)
+        {
+            loadedPathSprites[imagePath] = sprite;
+            return sprite;
+        }
+
+        var sprites = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(imagePath);
+        for (int i = 0; i < sprites.Length; i++)
+        {
+            if (sprites[i] is Sprite childSprite)
+            {
+                loadedPathSprites[imagePath] = childSprite;
+                return childSprite;
+            }
+        }
 #endif
+
+        string fullPath = Path.Combine(Application.dataPath, imagePath.StartsWith("Assets/") ? imagePath.Substring("Assets/".Length) : imagePath);
+        if (!File.Exists(fullPath))
+            return null;
+
+        byte[] bytes = File.ReadAllBytes(fullPath);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(bytes))
+            return null;
+
+        texture.name = Path.GetFileNameWithoutExtension(fullPath);
+        var runtimeSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        runtimeSprite.name = texture.name;
+        loadedPathSprites[imagePath] = runtimeSprite;
+        return runtimeSprite;
+    }
+
+    private static Sprite CreateFallbackRoomSprite(string roomName)
+    {
+        string cacheKey = $"fallback:{roomName}";
+        if (loadedPathSprites.TryGetValue(cacheKey, out var cachedSprite))
+            return cachedSprite;
+
+        const int width = 512;
+        const int height = 288;
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        var pixels = new Color32[width * height];
+        for (int i = 0; i < pixels.Length; i++)
+            pixels[i] = new Color32(18, 24, 28, 255);
+
+        texture.SetPixels32(pixels);
+        texture.Apply();
+        texture.name = roomName;
+
+        var sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        sprite.name = roomName;
+        loadedPathSprites[cacheKey] = sprite;
+        return sprite;
     }
 
     private bool TryBuildViewsFromRoomManager()
@@ -397,6 +566,9 @@ public class MonitorController : MonoBehaviour
             if (roomCamera == null || roomCamera.vcam == null)
                 continue;
 
+            if (!ShouldIncludeCameraRoom(roomCamera.roomName))
+                continue;
+
             var vcam = roomCamera.vcam;
             monitorViews.Add(new MonitorView
             {
@@ -409,29 +581,164 @@ public class MonitorController : MonoBehaviour
             });
         }
 
-        monitorViews.Sort((a, b) => string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal));
         return monitorViews.Count > 0;
     }
 
-    private void BuildViewsFromRoomBounds()
+    private void AddViewsFromRoomBounds()
     {
         var roomBounds = GetSceneRoomBounds();
         foreach (var col in roomBounds)
         {
             string roomName = col.name.Replace("RoomBounds_", "");
-            Vector2 center = col.bounds.center;
+            if (!ShouldIncludeCameraRoom(roomName))
+                continue;
+
+            Bounds bounds = col.bounds;
+            Vector2 center = bounds.center;
             monitorViews.Add(new MonitorView
             {
                 roomName = roomName,
                 position = new Vector3(center.x, center.y, -cameraHeight),
                 rotation = Quaternion.identity,
                 orthographic = true,
-                orthographicSize = cameraOrthoSize,
+                orthographicSize = GetOrthographicSizeForBounds(bounds),
                 fieldOfView = 60f
             });
         }
+    }
 
-        monitorViews.Sort((a, b) => string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal));
+    private float GetOrthographicSizeForBounds(Bounds bounds)
+    {
+        float aspect = mainCamera != null ? mainCamera.aspect : (16f / 9f);
+        float halfHeight = bounds.extents.y + roomBoundsPadding;
+        float halfWidthAsHeight = (bounds.extents.x + roomBoundsPadding) / Mathf.Max(0.01f, aspect);
+        return Mathf.Max(cameraOrthoSize, halfHeight, halfWidthAsHeight);
+    }
+
+    private bool ShouldIncludeCameraRoom(string roomName)
+    {
+        for (int i = 0; i < FixedMonitorRooms.Length; i++)
+        {
+            if (string.Equals(FixedMonitorRooms[i], roomName, System.StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasMonitorViewForRoom(string roomName)
+    {
+        for (int i = 0; i < monitorViews.Count; i++)
+        {
+            if (string.Equals(monitorViews[i].roomName, roomName, System.StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void SortMonitorViews()
+    {
+        monitorViews.Sort((a, b) =>
+        {
+            int aIndex = GetIncludedRoomIndex(a.roomName);
+            int bIndex = GetIncludedRoomIndex(b.roomName);
+            if (aIndex != bIndex)
+                return aIndex.CompareTo(bIndex);
+
+            return string.Compare(a.roomName, b.roomName, System.StringComparison.Ordinal);
+        });
+    }
+
+    private int GetIncludedRoomIndex(string roomName)
+    {
+        for (int i = 0; i < FixedMonitorRooms.Length; i++)
+        {
+            if (string.Equals(FixedMonitorRooms[i], roomName, System.StringComparison.Ordinal))
+                return i;
+        }
+
+        return int.MaxValue;
+    }
+
+    private void CacheTrackedObjects()
+    {
+        trackedPlayer = FindObjectOfType<PlayerController>();
+        trackedMonster = FindObjectOfType<MonsterController>();
+        trackedBags = FindObjectsOfType<TravelBag>(true);
+    }
+
+    private void UpdateTrackedBlips()
+    {
+        if (currentCameraIndex < 0 || currentCameraIndex >= monitorViews.Count)
+            return;
+
+        var view = monitorViews[currentCameraIndex];
+        if (!view.usesImage || !view.hasRoomBounds)
+        {
+            monitorUIInstance.SetTrackedBlips(null, 0);
+            return;
+        }
+
+        var blips = new List<MonitorTrackedBlip>();
+        AddTrackedBlip(blips, trackedPlayer != null ? trackedPlayer.transform : null, view, new Color(0.15f, 0.85f, 1f, 1f), 18f);
+        AddTrackedBlip(blips, trackedMonster != null ? trackedMonster.transform : null, view, new Color(1f, 0.08f, 0.08f, 1f), 22f);
+
+        if (trackedBags == null || trackedBags.Length == 0)
+            trackedBags = FindObjectsOfType<TravelBag>(true);
+
+        for (int i = 0; i < trackedBags.Length; i++)
+        {
+            var bag = trackedBags[i];
+            if (bag == null || bag.IsOpened)
+                continue;
+
+            AddTrackedBlip(blips, bag.transform, view, new Color(1f, 0.82f, 0.15f, 1f), 14f);
+        }
+
+        monitorUIInstance.SetTrackedBlips(blips, blips.Count);
+    }
+
+    private void AddTrackedBlip(List<MonitorTrackedBlip> blips, Transform target, MonitorView view, Color color, float size)
+    {
+        if (target == null)
+            return;
+
+        Bounds bounds = view.roomBounds;
+        Vector3 min = bounds.min;
+        Vector3 size3 = bounds.size;
+        if (target.position.x < min.x || target.position.x > min.x + size3.x ||
+            target.position.y < min.y || target.position.y > min.y + size3.y)
+        {
+            return;
+        }
+
+        Vector2 normalized = new Vector2(
+            Mathf.InverseLerp(min.x, min.x + size3.x, target.position.x),
+            Mathf.InverseLerp(min.y, min.y + size3.y, target.position.y));
+
+        blips.Add(new MonitorTrackedBlip
+        {
+            normalizedPosition = normalized,
+            color = color,
+            size = size
+        });
+    }
+
+    private static Dictionary<string, Bounds> BuildRoomBoundsMap()
+    {
+        var map = new Dictionary<string, Bounds>();
+        var roomBounds = GetSceneRoomBounds();
+        foreach (var col in roomBounds)
+        {
+            if (col == null)
+                continue;
+
+            string roomName = col.name.Replace("RoomBounds_", "");
+            map[roomName] = col.bounds;
+        }
+
+        return map;
     }
 
     private static PolygonCollider2D[] GetSceneRoomBounds()
@@ -490,6 +797,7 @@ public class MonitorController : MonoBehaviour
 
         monitorCamera.CopyFrom(mainCamera);
         monitorCamera.depth = mainCamera.depth + 100f;
+        monitorCamera.cullingMask = ~0;
         monitorCamera.targetTexture = null;
         monitorCamera.enabled = true;
         monitorCameraObject.SetActive(true);
