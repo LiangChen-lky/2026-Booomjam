@@ -10,6 +10,7 @@ public class MonitorCooldownIconUI : MonoBehaviour
     [SerializeField] private bool autoFindMonitorController = true;
 
     [Header("UI")]
+    [SerializeField] private Button monitorButton;
     [SerializeField] private Image cooldownMask;
     [SerializeField] private GameObject cooldownRoot;
     [SerializeField] private bool hideWhenReady = true;
@@ -25,9 +26,16 @@ public class MonitorCooldownIconUI : MonoBehaviour
 
     private void Awake()
     {
+        SetupButton();
         SetupMask();
         SetupCooldownText();
         Refresh(0f, 0f);
+    }
+
+    private void OnDestroy()
+    {
+        if (monitorButton != null)
+            monitorButton.onClick.RemoveListener(OnMonitorButtonClicked);
     }
 
     private void Update()
@@ -92,6 +100,42 @@ public class MonitorCooldownIconUI : MonoBehaviour
             cooldownText.enabled = coolingDown || !hideWhenReady;
             cooldownText.text = coolingDown ? remaining.ToString("0.0") : string.Empty;
         }
+
+        if (monitorButton != null)
+        {
+            bool monitorOpen = monitorController != null && monitorController.IsMonitorOpen;
+            monitorButton.interactable = !coolingDown && !monitorOpen;
+        }
+    }
+
+    private void SetupButton()
+    {
+        if (monitorButton == null)
+            monitorButton = GetComponent<Button>();
+
+        if (monitorButton == null)
+            monitorButton = gameObject.AddComponent<Button>();
+
+        var iconImage = GetComponent<Image>();
+        if (iconImage != null)
+        {
+            iconImage.raycastTarget = true;
+            monitorButton.targetGraphic = iconImage;
+        }
+
+        monitorButton.onClick.RemoveListener(OnMonitorButtonClicked);
+        monitorButton.onClick.AddListener(OnMonitorButtonClicked);
+    }
+
+    private void OnMonitorButtonClicked()
+    {
+        if (monitorController == null && autoFindMonitorController)
+            monitorController = MonitorController.Instance;
+
+        if (monitorController == null || monitorController.IsMonitorOpen || monitorController.IsOnCooldown)
+            return;
+
+        monitorController.OpenMonitor();
     }
 
     private void SetupCooldownText()

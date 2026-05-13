@@ -117,7 +117,7 @@ public class MonitorController : MonoBehaviour
             OpenMonitor();
     }
 
-    private void OpenMonitor()
+    public void OpenMonitor()
     {
         if (isOnCooldown)
         {
