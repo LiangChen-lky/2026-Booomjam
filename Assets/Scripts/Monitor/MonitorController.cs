@@ -109,7 +109,6 @@ public class MonitorController : MonoBehaviour
     private bool savedCursorVisible;
     private CursorLockMode savedCursorLockState;
     private Coroutine switchStaticCoroutine;
-    private Coroutine monitorCameraTransitionCoroutine;
     private bool hasLoggedBuiltViews;
 
     public bool IsMonitorOpen => isMonitorOpen;
@@ -299,12 +298,41 @@ public class MonitorController : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(switchStaticDuration);
 
-        switchStaticCoroutine = null;
-
         if (!isMonitorOpen || isSignalLost)
+        {
+            switchStaticCoroutine = null;
             yield break;
+        }
 
         ShowCamera(index);
+
+        if (monitorUIInstance != null)
+        {
+            if (cameraTransitionDuration > 0f)
+                yield return FadeSwitchStaticOut();
+            else
+                monitorUIInstance.SetSwitchStatic(null, false);
+        }
+
+        switchStaticCoroutine = null;
+    }
+
+    private IEnumerator FadeSwitchStaticOut()
+    {
+        float duration = Mathf.Max(0.01f, cameraTransitionDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+
+            if (monitorUIInstance != null)
+                monitorUIInstance.SetSwitchStaticAlpha(alpha);
+
+            yield return null;
+        }
+
         if (monitorUIInstance != null)
             monitorUIInstance.SetSwitchStatic(null, false);
     }
@@ -338,7 +366,6 @@ public class MonitorController : MonoBehaviour
 
         if (view.usesImage)
         {
-            StopMonitorCameraTransition();
             DisableMonitorCamera();
             if (monitorUIInstance != null)
             {
@@ -359,64 +386,11 @@ public class MonitorController : MonoBehaviour
             return;
         }
 
-        bool canTransitionFromCurrentCamera = monitorCamera != null
-            && monitorCamera.enabled
-            && monitorCameraObject != null
-            && monitorCameraObject.activeInHierarchy
-            && cameraTransitionDuration > 0f;
-
         CreateOrEnableMonitorCamera();
         if (monitorCamera == null)
             return;
 
-        if (canTransitionFromCurrentCamera)
-        {
-            StopMonitorCameraTransition();
-            monitorCameraTransitionCoroutine = StartCoroutine(TransitionMonitorCamera(view));
-            return;
-        }
-
-        StopMonitorCameraTransition();
         ApplyMonitorCameraView(view);
-    }
-
-    private IEnumerator TransitionMonitorCamera(MonitorView view)
-    {
-        Vector3 startPosition = monitorCamera.transform.position;
-        Quaternion startRotation = monitorCamera.transform.rotation;
-        bool startOrthographic = monitorCamera.orthographic;
-        float startOrthographicSize = monitorCamera.orthographicSize;
-        float startFieldOfView = monitorCamera.fieldOfView;
-        float duration = Mathf.Max(0.01f, cameraTransitionDuration);
-        float elapsed = 0f;
-
-        monitorCamera.orthographic = view.orthographic;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
-
-            monitorCamera.transform.SetPositionAndRotation(
-                Vector3.Lerp(startPosition, view.position, t),
-                Quaternion.Slerp(startRotation, view.rotation, t));
-
-            if (view.orthographic)
-            {
-                float fromSize = startOrthographic ? startOrthographicSize : view.orthographicSize;
-                monitorCamera.orthographicSize = Mathf.Lerp(fromSize, view.orthographicSize, t);
-            }
-            else
-            {
-                float fromFov = startOrthographic ? view.fieldOfView : startFieldOfView;
-                monitorCamera.fieldOfView = Mathf.Lerp(fromFov, view.fieldOfView, t);
-            }
-
-            yield return null;
-        }
-
-        ApplyMonitorCameraView(view);
-        monitorCameraTransitionCoroutine = null;
     }
 
     private void ApplyMonitorCameraView(MonitorView view)
@@ -891,8 +865,6 @@ public class MonitorController : MonoBehaviour
 
     private void DisableMonitorCamera()
     {
-        StopMonitorCameraTransition();
-
         if (monitorCamera != null)
             monitorCamera.enabled = false;
 
@@ -908,15 +880,6 @@ public class MonitorController : MonoBehaviour
         Destroy(monitorCameraObject);
         monitorCameraObject = null;
         monitorCamera = null;
-    }
-
-    private void StopMonitorCameraTransition()
-    {
-        if (monitorCameraTransitionCoroutine == null)
-            return;
-
-        StopCoroutine(monitorCameraTransitionCoroutine);
-        monitorCameraTransitionCoroutine = null;
     }
 
     private void SetVisionMaskEnabled(bool enabled)

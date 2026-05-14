@@ -90,7 +90,20 @@ public class MonitorCameraUI : MonoBehaviour
             return;
 
         switchStaticImage.sprite = staticSprite;
+        SetSwitchStaticAlpha(1f);
         switchStaticImage.enabled = visible && staticSprite != null && gameObject.activeInHierarchy;
+    }
+
+    public void SetSwitchStaticAlpha(float alpha)
+    {
+        SetupSwitchStaticImage();
+
+        if (switchStaticImage == null)
+            return;
+
+        Color color = switchStaticImage.color;
+        color.a = Mathf.Clamp01(alpha);
+        switchStaticImage.color = color;
     }
 
     public void SetTrackedBlips(System.Collections.Generic.IList<MonitorController.MonitorTrackedBlip> blips, int count)
