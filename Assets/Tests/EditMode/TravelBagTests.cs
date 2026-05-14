@@ -6,15 +6,11 @@ using UnityEngine;
 public class TravelBagTests
 {
     [Test]
-    public void PickupKey_OpenedBag_DisablesInteractionAndSwitchesSprite()
+    public void PickupKey_OpenedBag_DisablesInteractionAndKeyVisual()
     {
-        var audioType = FindType("AudioManager");
-        Assert.IsNotNull(audioType, "Could not find AudioManager type.");
-        var audioObject = new GameObject("AudioManager");
-        audioObject.AddComponent(audioType);
+        EnsureAudioManager();
 
         var bagObject = new GameObject("TravelBag");
-        var bagRenderer = bagObject.AddComponent<SpriteRenderer>();
         var bagCollider = bagObject.AddComponent<CircleCollider2D>();
         var interactableType = FindType("InteractableItem");
         Assert.IsNotNull(interactableType, "Could not find InteractableItem type.");
@@ -27,29 +23,83 @@ public class TravelBagTests
         Assert.IsNotNull(bagType, "Could not find TravelBag type.");
         var bag = (MonoBehaviour)bagObject.AddComponent(bagType);
 
-        var closedSprite = CreateSprite(Color.red);
-        var openedSprite = CreateSprite(Color.green);
-
-        bagRenderer.sprite = closedSprite;
-        SetPrivateField(bag, "closedSprite", closedSprite);
-        SetPrivateField(bag, "openedSprite", openedSprite);
-        SetPrivateField(bag, "emptyBagHintText", string.Empty);
-
         SetPrivateField(bag, "hasKey", true);
-        InvokeMethod(bag, "PickupKey", null);
+        InvokeMethod(bag, "PickupKey", new object[] { null });
 
-        Assert.AreEqual(openedSprite, bagRenderer.sprite);
         Assert.IsFalse(interactable.enabled);
         Assert.IsFalse(bagCollider.enabled);
         Assert.IsFalse(keyVisual.activeSelf);
     }
 
-    private static Sprite CreateSprite(Color color)
+    [Test]
+    public void PickupKey_WithStateRenderers_TogglesOpenedKeyVisual()
     {
-        var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        texture.SetPixel(0, 0, color);
-        texture.Apply();
-        return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+        EnsureAudioManager();
+
+        var bagObject = new GameObject("TravelBag");
+        bagObject.AddComponent<SpriteRenderer>();
+        bagObject.AddComponent<CircleCollider2D>();
+        var interactableType = FindType("InteractableItem");
+        Assert.IsNotNull(interactableType, "Could not find InteractableItem type.");
+        bagObject.AddComponent(interactableType);
+
+        var closedRenderer = CreateChildRenderer(bagObject.transform, "Closed");
+        var openedKeyRenderer = CreateChildRenderer(bagObject.transform, "OpenedKey");
+        var openedEmptyRenderer = CreateChildRenderer(bagObject.transform, "OpenedEmpty");
+
+        var bagType = FindType("TravelBag");
+        Assert.IsNotNull(bagType, "Could not find TravelBag type.");
+        var bag = (MonoBehaviour)bagObject.AddComponent(bagType);
+
+        SetPrivateField(bag, "closedVisualRenderer", closedRenderer);
+        SetPrivateField(bag, "openedWithKeyVisualRenderer", openedKeyRenderer);
+        SetPrivateField(bag, "openedEmptyVisualRenderer", openedEmptyRenderer);
+        SetPrivateField(bag, "hasKey", true);
+
+        InvokeMethod(bag, "PickupKey", new object[] { null });
+
+        Assert.IsFalse(closedRenderer.gameObject.activeSelf);
+        Assert.IsTrue(openedKeyRenderer.gameObject.activeSelf);
+        Assert.IsFalse(openedEmptyRenderer.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void PickupKey_WithStateRenderers_TogglesOpenedEmptyVisual()
+    {
+        EnsureAudioManager();
+
+        var bagObject = new GameObject("TravelBag");
+        bagObject.AddComponent<SpriteRenderer>();
+        bagObject.AddComponent<CircleCollider2D>();
+        var interactableType = FindType("InteractableItem");
+        Assert.IsNotNull(interactableType, "Could not find InteractableItem type.");
+        bagObject.AddComponent(interactableType);
+
+        var closedRenderer = CreateChildRenderer(bagObject.transform, "Closed");
+        var openedKeyRenderer = CreateChildRenderer(bagObject.transform, "OpenedKey");
+        var openedEmptyRenderer = CreateChildRenderer(bagObject.transform, "OpenedEmpty");
+
+        var bagType = FindType("TravelBag");
+        Assert.IsNotNull(bagType, "Could not find TravelBag type.");
+        var bag = (MonoBehaviour)bagObject.AddComponent(bagType);
+
+        SetPrivateField(bag, "closedVisualRenderer", closedRenderer);
+        SetPrivateField(bag, "openedWithKeyVisualRenderer", openedKeyRenderer);
+        SetPrivateField(bag, "openedEmptyVisualRenderer", openedEmptyRenderer);
+        SetPrivateField(bag, "hasKey", false);
+
+        InvokeMethod(bag, "PickupKey", new object[] { null });
+
+        Assert.IsFalse(closedRenderer.gameObject.activeSelf);
+        Assert.IsFalse(openedKeyRenderer.gameObject.activeSelf);
+        Assert.IsTrue(openedEmptyRenderer.gameObject.activeSelf);
+    }
+
+    private static SpriteRenderer CreateChildRenderer(Transform parent, string name)
+    {
+        var child = new GameObject(name);
+        child.transform.SetParent(parent, false);
+        return child.AddComponent<SpriteRenderer>();
     }
 
     private static void SetPrivateField<T>(object target, string fieldName, T value)
@@ -78,5 +128,17 @@ public class TravelBagTests
         }
 
         return null;
+    }
+
+    private static void EnsureAudioManager()
+    {
+        var audioType = FindType("AudioManager");
+        Assert.IsNotNull(audioType, "Could not find AudioManager type.");
+
+        if (UnityEngine.Object.FindObjectOfType(audioType) == null)
+        {
+            var audioObject = new GameObject("AudioManager");
+            audioObject.AddComponent(audioType);
+        }
     }
 }

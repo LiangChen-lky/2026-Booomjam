@@ -110,13 +110,9 @@ public class PauseMenu : MonoBehaviour
     private void RemoveGeneratedButtonAdditions(Transform buttonTransform)
     {
         var background = buttonTransform.Find("VisibleBackground");
-        var labelTransform = buttonTransform.Find("Label");
 
         if (background != null)
             Destroy(background.gameObject);
-
-        if (labelTransform != null && labelTransform.GetComponent<Text>() != null)
-            Destroy(labelTransform.gameObject);
     }
 
     private void CreateLegacyUI()

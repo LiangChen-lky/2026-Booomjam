@@ -8,16 +8,19 @@ public class TravelBag : MonoBehaviour
     [Header("Key Layout")]
     [SerializeField] private GameObject keyVisual;
     [Header("Bag Visual")]
-    [SerializeField] private SpriteRenderer bagRenderer;
-    [SerializeField] private Sprite closedSprite;
-    [SerializeField] private Sprite openedSprite;
+    [SerializeField] private SpriteRenderer closedVisualRenderer;
+    [SerializeField] private SpriteRenderer openedWithKeyVisualRenderer;
+    [SerializeField] private SpriteRenderer openedEmptyVisualRenderer;
     [Header("Hint")]
-    [SerializeField] private string emptyBagHintText = "这个旅行袋是空的";
+    [SerializeField] private Sprite keyFoundHintSprite;
+    [SerializeField] private Sprite emptyBagHintSprite;
 
+    private SpriteRenderer rootRenderer;
     private InteractableItem interactableItem;
     private Collider2D[] interactionColliders;
     private bool hasKey;
     private bool isOpened;
+    private bool openedHadKey;
 
     public bool HasKey => hasKey;
     public bool IsOpened => isOpened;
@@ -52,6 +55,7 @@ public class TravelBag : MonoBehaviour
 
         isOpened = true;
         bool awardedKey = hasKey;
+        openedHadKey = awardedKey;
         hasKey = false;
         UpdateKeyVisual();
         UpdateBagVisual();
@@ -68,6 +72,8 @@ public class TravelBag : MonoBehaviour
             {
                 audioManager.Play(SFX.BagSearch);
             }
+
+            ScreenHintPanel.Show(keyFoundHintSprite, "获得一把钥匙");
         }
         else
         {
@@ -83,17 +89,14 @@ public class TravelBag : MonoBehaviour
             audioManager.Play(SFX.EmptyBag);
         }
 
-        if (!string.IsNullOrWhiteSpace(emptyBagHintText))
-        {
-            ScreenHintPanel.Show(emptyBagHintText);
-        }
+        ScreenHintPanel.Show(emptyBagHintSprite, "这个旅行袋是空的");
     }
 
     private void CacheVisualComponents()
     {
-        if (bagRenderer == null)
+        if (rootRenderer == null)
         {
-            bagRenderer = GetComponent<SpriteRenderer>();
+            rootRenderer = GetComponent<SpriteRenderer>();
         }
 
         if (interactableItem == null)
@@ -133,19 +136,43 @@ public class TravelBag : MonoBehaviour
     {
         CacheVisualComponents();
 
-        if (bagRenderer != null)
+        if (rootRenderer != null && HasStateVisualRenderers())
         {
-            if (isOpened && openedSprite != null)
-            {
-                bagRenderer.sprite = openedSprite;
-            }
-            else if (!isOpened && closedSprite != null)
-            {
-                bagRenderer.sprite = closedSprite;
-            }
+            rootRenderer.enabled = false;
         }
 
+        UpdateStateVisualRenderers();
         SetInteractionEnabled(!isOpened);
+    }
+
+    private bool HasStateVisualRenderers()
+    {
+        return closedVisualRenderer != null
+            || openedWithKeyVisualRenderer != null
+            || openedEmptyVisualRenderer != null;
+    }
+
+    private void UpdateStateVisualRenderers()
+    {
+        if (!HasStateVisualRenderers())
+        {
+            return;
+        }
+
+        SetRendererVisible(closedVisualRenderer, !isOpened);
+        SetRendererVisible(openedWithKeyVisualRenderer, isOpened && openedHadKey);
+        SetRendererVisible(openedEmptyVisualRenderer, isOpened && !openedHadKey);
+    }
+
+    private void SetRendererVisible(SpriteRenderer renderer, bool visible)
+    {
+        if (renderer == null)
+        {
+            return;
+        }
+
+        renderer.gameObject.SetActive(visible);
+        renderer.enabled = visible;
     }
 
     private void SetInteractionEnabled(bool enabled)

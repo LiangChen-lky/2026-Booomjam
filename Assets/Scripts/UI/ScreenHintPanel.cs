@@ -10,7 +10,9 @@ public class ScreenHintPanel : MonoBehaviour
     private static ScreenHintPanel instance;
 
     [SerializeField] private float panelWidth = 620f;
-    [SerializeField] private float panelHeight = 90f;
+    [SerializeField] private float panelHeight = 130f;
+    [SerializeField] private float imageMaxWidth = 680f;
+    [SerializeField] private float imageMaxHeight = 120f;
     [SerializeField] private float visibleDuration = 1.2f;
     [SerializeField] private float fadeDuration = 0.8f;
     [SerializeField] private int fontSize = 28;
@@ -19,6 +21,9 @@ public class ScreenHintPanel : MonoBehaviour
 
     private GameObject panelRoot;
     private CanvasGroup canvasGroup;
+    private Image backgroundImage;
+    private Image imageComponent;
+    private RectTransform imageRectTransform;
     private Text textComponent;
     private Coroutine fadeCoroutine;
 
@@ -44,6 +49,12 @@ public class ScreenHintPanel : MonoBehaviour
     {
         EnsureInstance();
         instance.ShowInternal(message);
+    }
+
+    public static void Show(Sprite sprite, string fallbackMessage = null)
+    {
+        EnsureInstance();
+        instance.ShowInternal(sprite, fallbackMessage);
     }
 
     private static void EnsureInstance()
@@ -76,9 +87,9 @@ public class ScreenHintPanel : MonoBehaviour
         canvasGroup.interactable = false;
         canvasGroup.blocksRaycasts = false;
 
-        var bg = panelRoot.AddComponent<Image>();
-        bg.color = bgColor;
-        bg.raycastTarget = false;
+        backgroundImage = panelRoot.AddComponent<Image>();
+        backgroundImage.color = bgColor;
+        backgroundImage.raycastTarget = false;
 
         var panelRt = panelRoot.GetComponent<RectTransform>();
         panelRt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -104,11 +115,81 @@ public class ScreenHintPanel : MonoBehaviour
         textRt.anchorMax = Vector2.one;
         textRt.offsetMin = new Vector2(24f, 8f);
         textRt.offsetMax = new Vector2(-24f, -8f);
+
+        var imageObj = new GameObject("HintImage");
+        imageObj.transform.SetParent(panelRoot.transform, false);
+
+        imageComponent = imageObj.AddComponent<Image>();
+        imageComponent.preserveAspect = true;
+        imageComponent.raycastTarget = false;
+
+        imageRectTransform = imageObj.GetComponent<RectTransform>();
+        imageRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        imageRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        imageRectTransform.pivot = new Vector2(0.5f, 0.5f);
+        imageRectTransform.anchoredPosition = Vector2.zero;
+        imageObj.SetActive(false);
     }
 
     private void ShowInternal(string message)
     {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        SetTextMode(message);
+        ShowPanel();
+    }
+
+    private void ShowInternal(Sprite sprite, string fallbackMessage)
+    {
+        if (sprite == null)
+        {
+            ShowInternal(fallbackMessage);
+            return;
+        }
+
+        SetImageMode(sprite);
+        ShowPanel();
+    }
+
+    private void SetTextMode(string message)
+    {
+        if (backgroundImage != null)
+        {
+            backgroundImage.enabled = true;
+        }
+
+        if (imageComponent != null)
+        {
+            imageComponent.gameObject.SetActive(false);
+        }
+
+        textComponent.gameObject.SetActive(true);
         textComponent.text = message;
+    }
+
+    private void SetImageMode(Sprite sprite)
+    {
+        if (backgroundImage != null)
+        {
+            backgroundImage.enabled = false;
+        }
+
+        textComponent.gameObject.SetActive(false);
+        imageComponent.sprite = sprite;
+        imageComponent.gameObject.SetActive(true);
+
+        var spriteSize = sprite.rect.size;
+        float widthScale = imageMaxWidth / Mathf.Max(1f, spriteSize.x);
+        float heightScale = imageMaxHeight / Mathf.Max(1f, spriteSize.y);
+        float scale = Mathf.Min(1f, widthScale, heightScale);
+        imageRectTransform.sizeDelta = spriteSize * scale;
+    }
+
+    private void ShowPanel()
+    {
         panelRoot.SetActive(true);
         canvasGroup.alpha = 1f;
 

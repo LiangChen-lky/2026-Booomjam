@@ -139,11 +139,12 @@ public class PlayerController : MonoBehaviour
     {
         if (pauseMenuPrefab == null)
         {
-            pauseMenuPrefab = Resources.Load<PauseMenu>("UI/PauseMenu");
 #if UNITY_EDITOR
             if (pauseMenuPrefab == null)
                 pauseMenuPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<PauseMenu>("Assets/Prefabs/UI/PauseMenu.prefab");
 #endif
+            if (pauseMenuPrefab == null)
+                pauseMenuPrefab = Resources.Load<PauseMenu>("UI/PauseMenu");
         }
 
         if (pauseMenuPrefab == null)
