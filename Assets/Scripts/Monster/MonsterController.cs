@@ -19,6 +19,13 @@ public class MonsterController : MonoBehaviour
     [SerializeField] private Transform player;
     [SerializeField] private PlayerController playerController;
 
+    [Header("Animation")]
+    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private Sprite idleSprite;
+    [SerializeField] private Sprite[] runFrames;
+    [SerializeField, Min(1f)] private float runFrameRate = 12f;
+    [SerializeField, Min(0f)] private float movementAnimationThreshold = 0.01f;
+
     [Header("Debug")]
     [SerializeField] private MonsterState currentState = MonsterState.Wandering;
 
@@ -70,6 +77,9 @@ public class MonsterController : MonoBehaviour
     private bool hasDestination;
     private readonly RaycastHit2D[] movementHits = new RaycastHit2D[8];
     private float lastBlockedRepathTime = float.NegativeInfinity;
+    private bool wasMoving;
+    private int runFrameIndex;
+    private float runFrameTimer;
 
     private void Awake()
     {
@@ -77,6 +87,7 @@ public class MonsterController : MonoBehaviour
         seeker = GetComponent<Seeker>();
         rb = GetComponent<Rigidbody2D>();
         bodyCollider = GetComponent<Collider2D>();
+        CacheAnimationReferences();
     }
 
     private void Start()
@@ -116,6 +127,57 @@ public class MonsterController : MonoBehaviour
         }
 
         MoveAlongPath(Time.deltaTime);
+        UpdateMonsterAnimation();
+    }
+
+    private void CacheAnimationReferences()
+    {
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (idleSprite == null && spriteRenderer != null)
+        {
+            idleSprite = spriteRenderer.sprite;
+        }
+    }
+
+    private void UpdateMonsterAnimation()
+    {
+        if (spriteRenderer == null) return;
+
+        bool isMoving = IsMoving() || rb != null && rb.velocity.sqrMagnitude > movementAnimationThreshold;
+        if (!isMoving)
+        {
+            wasMoving = false;
+            runFrameIndex = 0;
+            runFrameTimer = 0f;
+            if (idleSprite != null)
+            {
+                spriteRenderer.sprite = idleSprite;
+            }
+            return;
+        }
+
+        if (runFrames == null || runFrames.Length == 0) return;
+        if (!wasMoving)
+        {
+            wasMoving = true;
+            runFrameIndex = 0;
+            runFrameTimer = 0f;
+            spriteRenderer.sprite = runFrames[runFrameIndex];
+            return;
+        }
+
+        runFrameTimer += Time.deltaTime;
+        float frameDuration = 1f / runFrameRate;
+        while (runFrameTimer >= frameDuration)
+        {
+            runFrameTimer -= frameDuration;
+            runFrameIndex = (runFrameIndex + 1) % runFrames.Length;
+            spriteRenderer.sprite = runFrames[runFrameIndex];
+        }
     }
 
     private void CheckPlayerState()
