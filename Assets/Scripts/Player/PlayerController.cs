@@ -67,6 +67,13 @@ public class PlayerController : MonoBehaviour
     [Tooltip("脚步声播放间隔（秒）")]
     [SerializeField, Min(0.1f)] private float footstepInterval = 0.4f;
 
+    [Header("Animation")]
+    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private Sprite idleSprite;
+    [SerializeField] private Sprite[] runFrames;
+    [SerializeField, Min(1f)] private float runFrameRate = 12f;
+    [SerializeField, Min(0f)] private float runAnimationThreshold = 0.01f;
+
     // 缓存交互对象
     private GameObject targetObject = null;
     private Vector2 moveInput;
@@ -84,6 +91,9 @@ public class PlayerController : MonoBehaviour
     private readonly HashSet<int> openedDoorIds = new HashSet<int>();
     private float lastFootstepTime;
     private bool playerRequestedCursorVisible;
+    private bool wasRunning;
+    private int runFrameIndex;
+    private float runFrameTimer;
 
     public int CurrentHealth { get; private set; }
     public int CurrentKey { get; private set; }
@@ -94,6 +104,7 @@ public class PlayerController : MonoBehaviour
         Input = GetComponent<PlayerInput>();
         Rigidbody = GetComponent<Rigidbody2D>();
         InteractionIcon = transform.Find("InteractionIcon");
+        CacheAnimationReferences();
         // Dynamic + gravity 0：与静态 Collider 正常阻挡（Kinematic 默认不碰静态体）。
         Rigidbody.bodyType = RigidbodyType2D.Dynamic;
         Rigidbody.gravityScale = 0f;
@@ -165,6 +176,7 @@ public class PlayerController : MonoBehaviour
         moveInput = Input.PlayerActions.Move.ReadValue<Vector2>();
         UpdateCachedLookDirection();
         UpdateInteractionIcon();
+        UpdatePlayerAnimation();
 
         // 实时更新灵敏度（用户可能在设置中修改）
         mouseSensitivity = SettingsMenu.GetMouseSensitivity();
@@ -303,6 +315,63 @@ public class PlayerController : MonoBehaviour
         {
             lastFootstepTime = Time.time;
             AudioManager.Instance.PlayAtPosition(SFX.PlayerFootstep, transform.position);
+        }
+    }
+
+    private void CacheAnimationReferences()
+    {
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (idleSprite == null && spriteRenderer != null)
+        {
+            idleSprite = spriteRenderer.sprite;
+        }
+    }
+
+    private void UpdatePlayerAnimation()
+    {
+        if (spriteRenderer == null)
+        {
+            return;
+        }
+
+        bool isRunning = moveInput.sqrMagnitude > runAnimationThreshold;
+        if (!isRunning)
+        {
+            wasRunning = false;
+            runFrameTimer = 0f;
+            runFrameIndex = 0;
+            if (idleSprite != null)
+            {
+                spriteRenderer.sprite = idleSprite;
+            }
+            return;
+        }
+
+        if (runFrames == null || runFrames.Length == 0)
+        {
+            return;
+        }
+
+        if (!wasRunning)
+        {
+            wasRunning = true;
+            runFrameTimer = 0f;
+            runFrameIndex = 0;
+            spriteRenderer.sprite = runFrames[runFrameIndex];
+            return;
+        }
+
+        runFrameTimer += Time.deltaTime;
+        float frameDuration = 1f / runFrameRate;
+        while (runFrameTimer >= frameDuration)
+        {
+            runFrameTimer -= frameDuration;
+            runFrameIndex = (runFrameIndex + 1) % runFrames.Length;
+            spriteRenderer.sprite = runFrames[runFrameIndex];
         }
     }
 
