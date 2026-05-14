@@ -1587,7 +1587,7 @@ Transform:
   m_GameObject: {fileID: 363296328}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 14.06, y: 7.7, z: 0}
+  m_LocalPosition: {x: 15.91, y: 6.92, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2201,7 +2201,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.7064013, y: -0.47998998, z: -10}
+  m_LocalPosition: {x: 4.707118, y: -0.47998998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3154,7 +3154,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 1220558829}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &866221934
@@ -4151,7 +4151,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 2027215711}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &1258163382
@@ -4701,7 +4701,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 914862246}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &1475021358
@@ -5420,7 +5420,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 452052210}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &1703439581
@@ -5549,7 +5549,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 721400869}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!1 &1754089089 stripped
@@ -5818,7 +5818,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 1336438900}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &1835094813
@@ -6530,7 +6530,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 1401403165}
-  m_Damping: 0
+  m_Damping: 0.5
   m_MaxWindowSize: 0
   m_Padding: 0.1
 --- !u!114 &1982849049

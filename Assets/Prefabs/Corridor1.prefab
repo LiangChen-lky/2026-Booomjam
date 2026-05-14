@@ -591,6 +591,7 @@ GameObject:
   - component: {fileID: 3882802719021784798}
   - component: {fileID: 4867120475953458208}
   - component: {fileID: 1052738246241086712}
+  - component: {fileID: 1997706226797754162}
   m_Layer: 0
   m_HasEditorInfo: 1
   m_Name: Door (1)
@@ -812,6 +813,22 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &1997706226797754162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3053162614052751960}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc361799cb46bad49b9226a3459649cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startsOpen: 0
+  requiresPlayerFirstOpen: 1
+  updateNavGraph: 1
+  playSound: 1
 --- !u!1 &3097310970499445698
 GameObject:
   m_ObjectHideFlags: 0

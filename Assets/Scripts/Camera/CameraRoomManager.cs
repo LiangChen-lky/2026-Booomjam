@@ -26,6 +26,8 @@ public class CameraRoomManager : MonoBehaviour
     private bool autoAlignRoomCamerasToBounds = true;
     [SerializeField, Tooltip("Z position used when auto-aligning room cameras.")]
     private float roomCameraZ = -30f;
+    [SerializeField, Min(0f), Tooltip("Damping used by room camera Confiner2D components when auto-aligning room cameras.")]
+    private float roomCameraConfinerDamping = 0.5f;
 
     [Header("Room Key Hint")]
     [SerializeField, Tooltip("Show how many uncollected keys are in a room when the player enters it.")]
@@ -146,7 +148,7 @@ public class CameraRoomManager : MonoBehaviour
                 confiner = vcam.gameObject.AddComponent<CinemachineConfiner2D>();
 
             confiner.m_BoundingShape2D = boundary;
-            confiner.m_Damping = 0f;
+            confiner.m_Damping = roomCameraConfinerDamping;
             confiner.m_MaxWindowSize = 0;
             confiner.InvalidateCache();
         }
