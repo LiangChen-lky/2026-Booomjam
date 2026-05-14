@@ -2938,7 +2938,6 @@ MonoBehaviour:
   controlRoomCameraPriorities: 0
   autoAlignRoomCamerasToBounds: 1
   roomCameraZ: -30
-  confinerPadding: 0.1
   showRoomKeyHint: 1
   roomKeyHintFormat: "\u8FD9\u4E2A\u623F\u95F4\u91CC\u6709 {0} \u628A\u94A5\u5319"
   detectPlayerRoomForKeyHint: 1
@@ -6945,6 +6944,14 @@ PrefabInstance:
     - target: {fileID: 6792595851147604005, guid: a76698eb4e2210940888399e613e4a02, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7614630717686496733, guid: a76698eb4e2210940888399e613e4a02, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -15.77
+      objectReference: {fileID: 0}
+    - target: {fileID: 7614630717686496733, guid: a76698eb4e2210940888399e613e4a02, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -2.13
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
