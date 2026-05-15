@@ -62,6 +62,8 @@ public class MonitorController : MonoBehaviour
     [SerializeField] private MonitorMode currentMode = MonitorMode.Image;
     [SerializeField] private string[] includedCameraRooms = { "Hall", "Dorm", "Classroom", "Toilet" };
     [SerializeField, Min(0f)] private float roomBoundsPadding = 1f;
+    [SerializeField, Tooltip("是否在监控静态画面上显示怪物位置（红点）。")]
+    private bool showMonsterBlipOnMonitor;
 
     [Header("Image Feeds")]
     [SerializeField] private MonitorImageFeed[] imageFeeds = new MonitorImageFeed[0];
@@ -742,7 +744,8 @@ public class MonitorController : MonoBehaviour
 
         var blips = new List<MonitorTrackedBlip>();
         AddTrackedBlip(blips, trackedPlayer != null ? trackedPlayer.transform : null, view, new Color(0.15f, 0.85f, 1f, 1f), 18f);
-        AddTrackedBlip(blips, trackedMonster != null ? trackedMonster.transform : null, view, new Color(1f, 0.08f, 0.08f, 1f), 22f);
+        if (showMonsterBlipOnMonitor)
+            AddTrackedBlip(blips, trackedMonster != null ? trackedMonster.transform : null, view, new Color(1f, 0.08f, 0.08f, 1f), 22f);
 
         if (trackedBags == null || trackedBags.Length == 0)
             trackedBags = FindObjectsOfType<TravelBag>(true);
