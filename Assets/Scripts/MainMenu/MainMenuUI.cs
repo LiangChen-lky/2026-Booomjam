@@ -5,27 +5,38 @@ using UnityEngine.UI;
 public class MainMenuUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
+    [SerializeField] private Button instructionsButton;
     [SerializeField] private Button settingsButton;
     [SerializeField] private Button exitButton;
+    [SerializeField] private Sprite instructionsButtonSprite;
     [SerializeField] private GameObject settingsPanelPrefab;
 
     private GameObject settingsPanel;
+    private GameObject instructionsPanel;
 
     private void Awake()
     {
         ResolveReferences();
+        EnsureInstructionsButton();
         startButton.onClick.AddListener(OnStartGame);
+        if (instructionsButton != null)
+            instructionsButton.onClick.AddListener(OnInstructions);
         settingsButton.onClick.AddListener(OnSettings);
         exitButton.onClick.AddListener(OnExitGame);
 
         // 按钮悬停音效
         AddHoverSound(startButton);
+        if (instructionsButton != null)
+            AddHoverSound(instructionsButton);
         AddHoverSound(settingsButton);
         AddHoverSound(exitButton);
 
         EnsureSettingsPanel();
+        EnsureInstructionsPanel();
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
+        if (instructionsPanel != null)
+            instructionsPanel.SetActive(false);
     }
 
     private void Start()
@@ -46,8 +57,45 @@ public class MainMenuUI : MonoBehaviour
     private void ResolveReferences()
     {
         if (startButton == null) startButton = FindChildComponent<Button>("StartButton");
+        if (instructionsButton == null) instructionsButton = FindChildComponent<Button>("ExplainButton");
         if (settingsButton == null) settingsButton = FindChildComponent<Button>("SettingsButton");
         if (exitButton == null) exitButton = FindChildComponent<Button>("ExitButton");
+    }
+
+    private void EnsureInstructionsButton()
+    {
+        if (instructionsButton != null)
+            return;
+
+        var buttonsParent = FindSceneTransform("Buttons");
+        if (buttonsParent == null)
+            return;
+
+        var template = buttonsParent.Find("StartButton");
+        if (template == null)
+            template = buttonsParent.Find("SettingsButton");
+        if (template == null)
+            return;
+
+        var buttonObject = Instantiate(template.gameObject, buttonsParent);
+        buttonObject.name = "ExplainButton";
+        buttonObject.transform.SetSiblingIndex(Mathf.Min(1, buttonsParent.childCount - 1));
+
+        var image = buttonObject.GetComponent<Image>();
+        var sprite = instructionsButtonSprite != null ? instructionsButtonSprite : LoadDefaultInstructionsButtonSprite();
+        if (image != null && sprite != null)
+            image.sprite = sprite;
+
+        instructionsButton = buttonObject.GetComponent<Button>();
+    }
+
+    private static Sprite LoadDefaultInstructionsButtonSprite()
+    {
+#if UNITY_EDITOR
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/ui/ui_start_说明.png");
+#else
+        return null;
+#endif
     }
 
     private void EnsureSettingsPanel()
@@ -84,8 +132,21 @@ public class MainMenuUI : MonoBehaviour
 
     private T FindChildComponent<T>(string childName) where T : Component
     {
-        var child = FindChildRecursive(transform, childName);
+        var child = FindSceneTransform(childName);
         return child != null ? child.GetComponent<T>() : null;
+    }
+
+    private Transform FindSceneTransform(string childName)
+    {
+        var found = FindChildRecursive(transform, childName);
+        if (found != null)
+            return found;
+
+        var canvas = FindMainMenuCanvas();
+        if (canvas == null)
+            return null;
+
+        return FindChildRecursive(canvas.transform, childName);
     }
 
     private Transform FindChildRecursive(Transform root, string childName)
@@ -127,16 +188,51 @@ public class MainMenuUI : MonoBehaviour
     private void OnSettings()
     {
         AudioManager.Instance.Play(SFX.UIClick);
+        if (instructionsPanel != null)
+            instructionsPanel.SetActive(false);
         if (settingsPanel == null)
             EnsureSettingsPanel();
         if (settingsPanel != null)
             settingsPanel.SetActive(true);
     }
 
+    private void OnInstructions()
+    {
+        AudioManager.Instance.Play(SFX.UIClick);
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
+        if (instructionsPanel == null)
+            EnsureInstructionsPanel();
+        if (instructionsPanel != null)
+            instructionsPanel.SetActive(true);
+    }
+
     public void ReturnFromSettings()
     {
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
+    }
+
+    public void ReturnFromInstructions()
+    {
+        if (instructionsPanel != null)
+            instructionsPanel.SetActive(false);
+    }
+
+    private void EnsureInstructionsPanel()
+    {
+        if (instructionsPanel != null)
+            return;
+
+        var canvas = FindMainMenuCanvas();
+        if (canvas == null)
+            return;
+
+        instructionsPanel = new GameObject("InstructionsPanel");
+        instructionsPanel.transform.SetParent(canvas.transform, false);
+        var menu = instructionsPanel.AddComponent<GameInstructionsMenu>();
+        menu.Initialize(ReturnFromInstructions);
+        instructionsPanel.SetActive(false);
     }
 
     private void OnExitGame()

@@ -166,12 +166,14 @@ public static class UIPrefabGenerator
         btnRect.sizeDelta = new Vector2(280, 250);
 
         CreateImageButton(buttons.transform, "StartButton", LoadSprite("Assets/Sprites/ui/ui_start_start.png"));
+        CreateImageButton(buttons.transform, "ExplainButton", LoadSprite("Assets/Sprites/ui/ui_start_说明.png"));
         CreateImageButton(buttons.transform, "SettingsButton", LoadSprite("Assets/Sprites/ui/ui_start_setup.png"));
         CreateImageButton(buttons.transform, "ExitButton", LoadSprite("Assets/Sprites/ui/ui_start_quit.png"));
 
         var menuUI = root.AddComponent<MainMenuUI>();
         var so = new SerializedObject(menuUI);
         so.FindProperty("startButton").objectReferenceValue = buttons.transform.Find("StartButton").GetComponent<Button>();
+        so.FindProperty("instructionsButton").objectReferenceValue = buttons.transform.Find("ExplainButton").GetComponent<Button>();
         so.FindProperty("settingsButton").objectReferenceValue = buttons.transform.Find("SettingsButton").GetComponent<Button>();
         so.FindProperty("exitButton").objectReferenceValue = buttons.transform.Find("ExitButton").GetComponent<Button>();
         so.FindProperty("settingsPanelPrefab").objectReferenceValue = settingsPanelPrefab;
