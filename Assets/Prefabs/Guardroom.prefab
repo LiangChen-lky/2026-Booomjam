@@ -301,6 +301,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hidePoint: {fileID: 4214898683269012618}
+  exitPoint: {fileID: 0}
   hiddenAlpha: 0.7
 --- !u!1 &2667746309387563422
 GameObject:
@@ -1028,12 +1029,24 @@ PrefabInstance:
       value: TravelBag
       objectReference: {fileID: 0}
     - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.6103
+      objectReference: {fileID: 0}
+    - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.6103
+      objectReference: {fileID: 0}
+    - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.6103
+      objectReference: {fileID: 0}
+    - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -28.65303
+      value: -27.62
       objectReference: {fileID: 0}
     - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -7.9708776
+      value: -7.93
       objectReference: {fileID: 0}
     - target: {fileID: 7197020812615548551, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
       propertyPath: m_LocalPosition.z

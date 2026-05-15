@@ -20,6 +20,14 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     [SerializeField, Min(0f)] private float coneRange = 0.75f;
     [SerializeField, Range(1f, 179f)] private float coneAngle = 70f;
 
+    [Header("Runtime Debug")]
+    [SerializeField] private bool enableRuntimeDebugControls = true;
+    [SerializeField] private KeyCode debugToggleKey = KeyCode.F6;
+    [SerializeField, Min(0f)] private float debugMinConeRange = 0.1f;
+    [SerializeField, Min(0f)] private float debugMaxConeRange = 2f;
+    [SerializeField, Range(1f, 179f)] private float debugMinConeAngle = 10f;
+    [SerializeField, Range(1f, 179f)] private float debugMaxConeAngle = 160f;
+
     [Header("边缘过渡")]
     [SerializeField, Min(0.001f)] private float edgeSoftness = 0.05f;
     [SerializeField, Min(0.001f)] private float coneAngleSoftness = 0.05f;
@@ -33,8 +41,43 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     private Image maskImage;
     private Material maskMaterial;
     private bool forceHidden;
+    private bool showRuntimeDebugControls;
+    private Rect debugWindowRect = new Rect(16f, 16f, 280f, 136f);
 
     private static PlayerVisionMaskSystem instance;
+
+    public float ConeRange
+    {
+        get => coneRange;
+        set => coneRange = Mathf.Max(0f, value);
+    }
+
+    public float ConeAngle
+    {
+        get => coneAngle;
+        set => coneAngle = Mathf.Clamp(value, 1f, 179f);
+    }
+
+    private void Awake()
+    {
+        if (instance != null && instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
+    private void OnValidate()
+    {
+        coneRange = Mathf.Max(0f, coneRange);
+        coneAngle = Mathf.Clamp(coneAngle, 1f, 179f);
+        debugMaxConeRange = Mathf.Max(debugMinConeRange, debugMaxConeRange);
+        debugMinConeAngle = Mathf.Clamp(debugMinConeAngle, 1f, 179f);
+        debugMaxConeAngle = Mathf.Clamp(Mathf.Max(debugMinConeAngle, debugMaxConeAngle), 1f, 179f);
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoCreate()
@@ -89,6 +132,11 @@ public class PlayerVisionMaskSystem : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (enableRuntimeDebugControls && Input.GetKeyDown(debugToggleKey))
+        {
+            showRuntimeDebugControls = !showRuntimeDebugControls;
+        }
+
         if (forceHidden)
         {
             SetMaskVisualActive(false);
@@ -218,5 +266,27 @@ public class PlayerVisionMaskSystem : MonoBehaviour
         maskMaterial.SetFloat("_EdgeSoftness", edgeSoftness);
         maskMaterial.SetFloat("_ConeAngleSoftness", coneAngleSoftness);
         maskMaterial.SetFloat("_Aspect", (float)Screen.width / Mathf.Max(1f, Screen.height));
+    }
+
+    private void OnGUI()
+    {
+        if (!enableRuntimeDebugControls || !showRuntimeDebugControls)
+        {
+            return;
+        }
+
+        debugWindowRect = GUI.Window(GetInstanceID(), debugWindowRect, DrawDebugWindow, "Flashlight Debug");
+    }
+
+    private void DrawDebugWindow(int windowId)
+    {
+        GUILayout.Label($"Length: {coneRange:F2}");
+        ConeRange = GUILayout.HorizontalSlider(coneRange, debugMinConeRange, Mathf.Max(debugMinConeRange, debugMaxConeRange));
+
+        GUILayout.Label($"Angle: {coneAngle:F0}");
+        ConeAngle = GUILayout.HorizontalSlider(coneAngle, debugMinConeAngle, Mathf.Max(debugMinConeAngle, debugMaxConeAngle));
+
+        GUILayout.Label($"{debugToggleKey}: toggle");
+        GUI.DragWindow(new Rect(0f, 0f, 10000f, 20f));
     }
 }
