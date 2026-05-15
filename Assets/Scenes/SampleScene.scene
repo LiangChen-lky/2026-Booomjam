@@ -4236,7 +4236,8 @@ MonoBehaviour:
   darknessAlpha: 1
   innerRadius: 0.1
   coneRange: 0.96
-  coneAngle: 40
+  coneAngle: 45
+  persistAcrossScenes: 0
   enableRuntimeDebugControls: 1
   debugToggleKey: 287
   debugMinConeRange: 0.1

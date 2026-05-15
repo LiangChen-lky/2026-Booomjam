@@ -21,6 +21,7 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     [SerializeField, Range(1f, 179f)] private float coneAngle = 70f;
 
     [Header("Runtime Debug")]
+    [SerializeField] private bool persistAcrossScenes;
     [SerializeField] private bool enableRuntimeDebugControls = true;
     [SerializeField] private KeyCode debugToggleKey = KeyCode.F6;
     [SerializeField, Min(0f)] private float debugMinConeRange = 0.1f;
@@ -67,7 +68,10 @@ public class PlayerVisionMaskSystem : MonoBehaviour
         }
 
         instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (persistAcrossScenes)
+        {
+            DontDestroyOnLoad(gameObject);
+        }
     }
 
     private void OnValidate()
@@ -88,8 +92,9 @@ public class PlayerVisionMaskSystem : MonoBehaviour
         }
 
         var root = new GameObject(nameof(PlayerVisionMaskSystem));
+        var maskSystem = root.AddComponent<PlayerVisionMaskSystem>();
+        maskSystem.persistAcrossScenes = true;
         DontDestroyOnLoad(root);
-        instance = root.AddComponent<PlayerVisionMaskSystem>();
     }
 
     private void OnEnable()
@@ -111,6 +116,11 @@ public class PlayerVisionMaskSystem : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (instance == this)
+        {
+            instance = null;
+        }
+
         if (maskMaterial != null)
         {
             Destroy(maskMaterial);
