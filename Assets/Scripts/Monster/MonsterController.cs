@@ -76,6 +76,7 @@ public class MonsterController : MonoBehaviour
     private Vector3 currentDestination;
     private bool hasDestination;
     private readonly RaycastHit2D[] movementHits = new RaycastHit2D[8];
+    private readonly Collider2D[] destinationHits = new Collider2D[8];
     private float lastBlockedRepathTime = float.NegativeInfinity;
     private bool wasMoving;
     private int runFrameIndex;
@@ -531,23 +532,45 @@ public class MonsterController : MonoBehaviour
             return true;
         }
 
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(movementBlockMask);
+        filter.useTriggers = false;
+
+        int hitCount;
         if (bodyCollider is BoxCollider2D boxCollider)
         {
             Vector2 center = position + (Vector3)boxCollider.offset;
             Vector2 size = Vector2.Scale(boxCollider.size, transform.lossyScale);
             size.x = Mathf.Abs(size.x) + destinationClearance * 2f;
             size.y = Mathf.Abs(size.y) + destinationClearance * 2f;
-            return Physics2D.OverlapBox(center, size, transform.eulerAngles.z, movementBlockMask) == null;
+            hitCount = Physics2D.OverlapBox(center, size, transform.eulerAngles.z, filter, destinationHits);
+            return !HasBlockingDestinationHit(hitCount);
         }
 
         if (bodyCollider is CircleCollider2D circleCollider)
         {
             Vector2 center = position + (Vector3)circleCollider.offset;
             float radius = circleCollider.radius * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y));
-            return Physics2D.OverlapCircle(center, radius + destinationClearance, movementBlockMask) == null;
+            hitCount = Physics2D.OverlapCircle(center, radius + destinationClearance, filter, destinationHits);
+            return !HasBlockingDestinationHit(hitCount);
         }
 
-        return Physics2D.OverlapCircle(position, nextWaypointDistance + destinationClearance, movementBlockMask) == null;
+        hitCount = Physics2D.OverlapCircle(position, nextWaypointDistance + destinationClearance, filter, destinationHits);
+        return !HasBlockingDestinationHit(hitCount);
+    }
+
+    private bool HasBlockingDestinationHit(int hitCount)
+    {
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = destinationHits[i];
+            if (hitCollider == null || hitCollider.isTrigger) continue;
+            if (bodyCollider != null && hitCollider == bodyCollider) continue;
+            if (rb != null && hitCollider.attachedRigidbody == rb) continue;
+            return true;
+        }
+
+        return false;
     }
 
     private void CheckForDoor()

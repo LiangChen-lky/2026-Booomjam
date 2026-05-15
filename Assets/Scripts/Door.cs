@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class Door : MonoBehaviour
 {
+    private const float NavGraphUpdatePadding = 0.1f;
+
     [Header("Door State")]
     [SerializeField] private bool startsOpen;
     [SerializeField] private bool requiresPlayerFirstOpen;
@@ -34,6 +36,8 @@ public class Door : MonoBehaviour
 
     public void ApplyOpenState(bool opened, float openedSpriteAlpha)
     {
+        bool hadBoundsBefore = TryGetNavGraphBounds(out Bounds graphBounds);
+
         isOpen = opened;
 
         var sr = GetComponentInChildren<SpriteRenderer>(true);
@@ -52,19 +56,100 @@ public class Door : MonoBehaviour
             }
         }
 
-        OnDoorStateChanged();
+        if (TryGetNavGraphBounds(out Bounds boundsAfter))
+        {
+            if (hadBoundsBefore)
+            {
+                graphBounds.Encapsulate(boundsAfter);
+            }
+            else
+            {
+                graphBounds = boundsAfter;
+                hadBoundsBefore = true;
+            }
+        }
+
+        OnDoorStateChanged(graphBounds, hadBoundsBefore);
     }
 
     public void OnDoorStateChanged()
     {
+        OnDoorStateChanged(new Bounds(), false);
+    }
+
+    private void OnDoorStateChanged(Bounds changedBounds, bool hasChangedBounds)
+    {
         if (updateNavGraph && AstarPath.active != null)
         {
-            var collider = GetComponent<Collider2D>();
-            if (collider != null)
+            if (!hasChangedBounds && !TryGetNavGraphBounds(out changedBounds))
             {
-                AstarPath.active.UpdateGraphs(collider.bounds);
+                return;
+            }
+
+            changedBounds.Expand(NavGraphUpdatePadding);
+            UpdateNavGraph(changedBounds);
+        }
+    }
+
+    private void UpdateNavGraph(Bounds changedBounds)
+    {
+        Collider2D[] colliders = GetComponentsInChildren<Collider2D>(true);
+        if (!isOpen)
+        {
+            AstarPath.active.UpdateGraphs(changedBounds);
+            AstarPath.active.FlushGraphUpdates();
+            return;
+        }
+
+        bool[] triggerWasEnabled = new bool[colliders.Length];
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D col = colliders[i];
+            if (col != null && col.isTrigger)
+            {
+                triggerWasEnabled[i] = col.enabled;
+                col.enabled = false;
             }
         }
+
+        try
+        {
+            AstarPath.active.UpdateGraphs(changedBounds);
+            AstarPath.active.FlushGraphUpdates();
+        }
+        finally
+        {
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider2D col = colliders[i];
+                if (col != null && col.isTrigger)
+                {
+                    col.enabled = triggerWasEnabled[i];
+                }
+            }
+        }
+    }
+
+    private bool TryGetNavGraphBounds(out Bounds bounds)
+    {
+        bounds = new Bounds();
+        bool hasBounds = false;
+        foreach (var col in GetComponentsInChildren<Collider2D>(true))
+        {
+            if (col == null || !col.enabled) continue;
+
+            if (!hasBounds)
+            {
+                bounds = col.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        return hasBounds;
     }
 
     public void PlayOpenSound()
