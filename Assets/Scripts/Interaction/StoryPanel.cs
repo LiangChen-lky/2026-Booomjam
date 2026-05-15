@@ -2,15 +2,26 @@
 using UnityEngine.UI;
 
 /// <summary>
-/// 底部对话框单例，用于显示线索物品的文字内容。
+/// 线索文本面板单例，用于显示线索物品的文字内容。
 /// 挂在场景中任意物体上即可，会自动创建 UI。
 /// </summary>
 public class StoryPanel : MonoBehaviour
 {
     private static StoryPanel instance;
 
-    [SerializeField] private float panelHeight = 160f;
+    [Header("Panel Layout")]
+    [SerializeField] private Vector2 anchorMin = new Vector2(0.5f, 0.5f);
+    [SerializeField] private Vector2 anchorMax = new Vector2(0.5f, 0.5f);
+    [SerializeField] private Vector2 pivot = new Vector2(0.5f, 0.5f);
+    [SerializeField] private Vector2 anchoredPosition = Vector2.zero;
+    [SerializeField] private Vector2 panelSize = new Vector2(900f, 260f);
+    [SerializeField] private Vector4 textPadding = new Vector4(30f, 20f, 30f, 20f);
+
+    [Header("Text Style")]
     [SerializeField] private int fontSize = 24;
+    [SerializeField] private TextAnchor textAlignment = TextAnchor.MiddleLeft;
+
+    [Header("Colors")]
     [SerializeField] private Color bgColor = new Color(0f, 0f, 0f, 0.75f);
     [SerializeField] private Color textColor = Color.white;
 
@@ -58,10 +69,11 @@ public class StoryPanel : MonoBehaviour
         bg.color = bgColor;
 
         var rt = panelRoot.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 0f);
-        rt.anchorMax = new Vector2(1f, 0f);
-        rt.pivot = new Vector2(0.5f, 0f);
-        rt.sizeDelta = new Vector2(0f, panelHeight);
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.pivot = pivot;
+        rt.anchoredPosition = anchoredPosition;
+        rt.sizeDelta = panelSize;
 
         var textObj = new GameObject("StoryText");
         textObj.transform.SetParent(panelRoot.transform, false);
@@ -70,15 +82,15 @@ public class StoryPanel : MonoBehaviour
         textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         textComponent.fontSize = fontSize;
         textComponent.color = textColor;
-        textComponent.alignment = TextAnchor.MiddleLeft;
+        textComponent.alignment = textAlignment;
         textComponent.horizontalOverflow = HorizontalWrapMode.Wrap;
         textComponent.verticalOverflow = VerticalWrapMode.Truncate;
 
         var textRt = textObj.GetComponent<RectTransform>();
         textRt.anchorMin = Vector2.zero;
         textRt.anchorMax = Vector2.one;
-        textRt.offsetMin = new Vector2(30f, 10f);
-        textRt.offsetMax = new Vector2(-30f, -10f);
+        textRt.offsetMin = new Vector2(textPadding.x, textPadding.w);
+        textRt.offsetMax = new Vector2(-textPadding.z, -textPadding.y);
     }
 
     private void Update()
