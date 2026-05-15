@@ -20,6 +20,10 @@ public class CameraRoomManager : MonoBehaviour
     private bool switchToPlayerRoomOnStart = false;
     [SerializeField, Tooltip("Let this manager raise/lower Cinemachine room camera priorities. Leave off when the player should keep using the normal follow camera.")]
     private bool controlRoomCameraPriorities = false;
+    [SerializeField, Tooltip("Use a room-local confiner for selected rooms after a door crossing. This avoids narrow global CameraBounds dead zones without letting RoomBounds detection move the camera early.")]
+    private bool constrainMainCameraAfterDoor = true;
+    [SerializeField, Tooltip("Room names that should use their RoomBounds on the normal player-follow camera after crossing a door.")]
+    private string[] roomsUsingMainCameraRoomBounds = { "Corridor1", "Hall", "Corridor2", "Classroom", "Toilet", "Dorm" };
 
     [Header("Room Camera Auto Setup")]
     [SerializeField, Tooltip("Automatically place configured room cameras at matching RoomBounds centers and clear Follow/LookAt.")]
@@ -51,6 +55,9 @@ public class CameraRoomManager : MonoBehaviour
     }
 
     private Dictionary<string, CinemachineVirtualCamera> cameraMap;
+    private CinemachineVirtualCamera mainFollowCamera;
+    private CinemachineConfiner2D mainFollowCameraConfiner;
+    private Collider2D defaultMainCameraBounds;
     private Transform playerTransform;
     private float nextRoomKeyHintCheckTime;
 
@@ -61,6 +68,8 @@ public class CameraRoomManager : MonoBehaviour
 
         if (switchToPlayerRoomOnStart)
             SwitchToPlayerRoomAtStart();
+        else
+            UpdateMainCameraConfinerForCurrentPosition();
     }
 
     private void Update()
@@ -156,13 +165,18 @@ public class CameraRoomManager : MonoBehaviour
 
     public void SwitchRoom(string newRoom)
     {
+        SwitchRoom(newRoom, true);
+    }
+
+    private void SwitchRoom(string newRoom, bool updateCamera)
+    {
         if (string.IsNullOrEmpty(newRoom)) return;
         if (cameraMap == null)
             cameraMap = BuildCameraMap(roomCameras);
 
         bool enteredNewRoom = currentRoom != newRoom;
 
-        if (controlRoomCameraPriorities && cameraMap.ContainsKey(newRoom))
+        if (updateCamera && controlRoomCameraPriorities && cameraMap.ContainsKey(newRoom))
         {
             // 禁用所有房间相机
             foreach (var kvp in cameraMap)
@@ -183,6 +197,12 @@ public class CameraRoomManager : MonoBehaviour
         {
             ShowRoomKeyHint(newRoom);
         }
+    }
+
+    public void SwitchRoomFromDoor(string newRoom)
+    {
+        SwitchRoom(newRoom, true);
+        UpdateMainCameraConfiner(newRoom);
     }
 
     public void SetRoomKeyHintEnabled(bool enabled)
@@ -213,7 +233,8 @@ public class CameraRoomManager : MonoBehaviour
         if (string.IsNullOrEmpty(playerRoom) || playerRoom == currentRoom)
             return;
 
-        SwitchRoom(playerRoom);
+        SwitchRoom(playerRoom, false);
+        UpdateMainCameraConfiner(playerRoom);
     }
 
     private void CachePlayerTransform()
@@ -285,6 +306,133 @@ public class CameraRoomManager : MonoBehaviour
         }
     }
 
+    private void UpdateMainCameraConfinerForCurrentPosition()
+    {
+        if (!constrainMainCameraAfterDoor)
+            return;
+
+        CachePlayerTransform();
+        if (playerTransform == null)
+            return;
+
+        string playerRoom = FindRoomAtPosition(playerTransform.position);
+        if (!string.IsNullOrEmpty(playerRoom))
+        {
+            UpdateMainCameraConfiner(playerRoom);
+        }
+    }
+
+    private void UpdateMainCameraConfiner(string roomName)
+    {
+        if (!constrainMainCameraAfterDoor)
+            return;
+
+        CacheMainFollowCamera();
+        if (mainFollowCameraConfiner == null)
+            return;
+
+        Collider2D boundary = defaultMainCameraBounds;
+        if (ShouldUseRoomBoundsForMainCamera(roomName))
+        {
+            var boundsByRoom = BuildRoomBoundsMap();
+            if (!boundsByRoom.TryGetValue(roomName, out var roomBoundary) || roomBoundary == null)
+                return;
+
+            boundary = roomBoundary;
+        }
+
+        if (boundary == null || mainFollowCameraConfiner.m_BoundingShape2D == boundary)
+            return;
+
+        mainFollowCameraConfiner.m_BoundingShape2D = boundary;
+        mainFollowCameraConfiner.InvalidateCache();
+    }
+
+    private void CacheMainFollowCamera()
+    {
+        if (mainFollowCameraConfiner != null)
+            return;
+
+        if (mainFollowCamera == null)
+            mainFollowCamera = FindMainFollowCamera();
+
+        if (mainFollowCamera == null)
+            return;
+
+        mainFollowCameraConfiner = mainFollowCamera.GetComponent<CinemachineConfiner2D>();
+        if (mainFollowCameraConfiner == null)
+            mainFollowCameraConfiner = mainFollowCamera.gameObject.AddComponent<CinemachineConfiner2D>();
+
+        if (defaultMainCameraBounds == null)
+            defaultMainCameraBounds = mainFollowCameraConfiner.m_BoundingShape2D;
+    }
+
+    private bool ShouldUseRoomBoundsForMainCamera(string roomName)
+    {
+        if (roomsUsingMainCameraRoomBounds == null || string.IsNullOrEmpty(roomName))
+            return false;
+
+        foreach (var configuredRoom in roomsUsingMainCameraRoomBounds)
+        {
+            if (configuredRoom == roomName)
+                return true;
+        }
+
+        return false;
+    }
+
+    private CinemachineVirtualCamera FindMainFollowCamera()
+    {
+        CachePlayerTransform();
+
+        var virtualCameras = FindObjectsOfType<CinemachineVirtualCamera>();
+        CinemachineVirtualCamera bestCamera = null;
+        int bestPriority = int.MinValue;
+
+        foreach (var vcam in virtualCameras)
+        {
+            if (vcam == null || IsRoomCamera(vcam))
+                continue;
+
+            bool followsPlayer = playerTransform != null &&
+                (vcam.m_Follow == playerTransform || vcam.m_LookAt == playerTransform);
+            bool isNamedMainCamera = vcam.name == "Virtual Camera";
+            if (!followsPlayer && !isNamedMainCamera)
+                continue;
+
+            if (vcam.Priority > bestPriority)
+            {
+                bestPriority = vcam.Priority;
+                bestCamera = vcam;
+            }
+        }
+
+        return bestCamera;
+    }
+
+    private bool IsRoomCamera(CinemachineVirtualCamera vcam)
+    {
+        if (vcam == null)
+            return false;
+
+        if (vcam.name.StartsWith("VCam_"))
+            return true;
+
+        if (vcam.transform.parent != null && vcam.transform.parent.name == "RoomCameras")
+            return true;
+
+        if (roomCameras == null)
+            return false;
+
+        foreach (var roomCamera in roomCameras)
+        {
+            if (roomCamera != null && roomCamera.vcam == vcam)
+                return true;
+        }
+
+        return false;
+    }
+
     public string FindRoomAtPosition(Vector2 worldPos)
     {
         // 用场景中的 RoomBounds_Xxx 检测，包括失活对象
@@ -297,6 +445,41 @@ public class CameraRoomManager : MonoBehaviour
             }
         }
         return null;
+    }
+
+    public string FindClosestRoomAtPosition(Vector2 worldPos, float maxDistance)
+    {
+        return FindClosestRoomAtPosition(worldPos, maxDistance, null);
+    }
+
+    public string FindClosestRoomAtPosition(Vector2 worldPos, float maxDistance, string excludedRoom)
+    {
+        if (maxDistance <= 0f)
+            return null;
+
+        string closestRoom = null;
+        float closestDistanceSqr = maxDistance * maxDistance;
+        var roomBounds = GetSceneRoomBounds();
+
+        foreach (var col in roomBounds)
+        {
+            if (col == null)
+                continue;
+
+            string roomName = col.name.Replace("RoomBounds_", "");
+            if (!string.IsNullOrEmpty(excludedRoom) && roomName == excludedRoom)
+                continue;
+
+            Vector2 closestPoint = col.ClosestPoint(worldPos);
+            float distanceSqr = (worldPos - closestPoint).sqrMagnitude;
+            if (distanceSqr > closestDistanceSqr)
+                continue;
+
+            closestDistanceSqr = distanceSqr;
+            closestRoom = roomName;
+        }
+
+        return closestRoom;
     }
 
     private Dictionary<string, CinemachineVirtualCamera> BuildCameraMap(RoomCamera[] cameras)

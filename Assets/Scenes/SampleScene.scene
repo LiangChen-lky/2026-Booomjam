@@ -2474,8 +2474,8 @@ PolygonCollider2D:
       - {x: 39.486774, y: 20.024624}
       - {x: 18.407104, y: 20.024624}
     - - {x: 10.740805, y: -5.62391}
-      - {x: 82.09759, y: -5.510616}
-      - {x: 82.05982, y: 5.221316}
+      - {x: 86.762314, y: -5.510616}
+      - {x: 86.762314, y: 5.221316}
       - {x: 10.476451, y: 5.2590804}
     - - {x: 53.61305, y: 4.9944077}
       - {x: 78.018814, y: 4.9944077}
@@ -2627,6 +2627,14 @@ MonoBehaviour:
   currentRoom: 
   switchToPlayerRoomOnStart: 0
   controlRoomCameraPriorities: 0
+  constrainMainCameraAfterDoor: 1
+  roomsUsingMainCameraRoomBounds:
+  - Corridor1
+  - Hall
+  - Corridor2
+  - Classroom
+  - Toilet
+  - Dorm
   autoAlignRoomCamerasToBounds: 1
   roomCameraZ: -30
   roomCameraConfinerDamping: 0.5
@@ -4869,7 +4877,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BoundingShape2D: {fileID: 721400869}
   m_Damping: 0.5
-  m_MaxWindowSize: 0
+  m_MaxWindowSize: 12.5
   m_Padding: 0.1
 --- !u!1001 &1767941764
 PrefabInstance:
