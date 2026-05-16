@@ -2338,6 +2338,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6148717136529063312}
     m_Modifications:
+    - target: {fileID: 689683189266866608, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 982054454493386451, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
       propertyPath: m_Name
       value: TravelBag (2)
@@ -2510,6 +2514,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6148717136529063312}
     m_Modifications:
+    - target: {fileID: 689683189266866608, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 982054454493386451, guid: 032900c28397c984aa5ac93ce17e29f8, type: 3}
       propertyPath: m_Name
       value: TravelBag

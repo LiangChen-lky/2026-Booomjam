@@ -106,6 +106,7 @@ public class PlayerController : MonoBehaviour
         Cursor.visible = false;
         Input = GetComponent<PlayerInput>();
         Rigidbody = GetComponent<Rigidbody2D>();
+        EnsureMainDoorArrowIndicator();
         InteractionIcon = transform.Find("InteractionIcon");
         if (InteractionIcon != null)
         {
@@ -130,6 +131,14 @@ public class PlayerController : MonoBehaviour
                 var pauseObj = new GameObject("[PauseMenu]");
                 pauseObj.AddComponent<PauseMenu>();
             }
+        }
+    }
+
+    private void EnsureMainDoorArrowIndicator()
+    {
+        if (GetComponent<MainDoorArrowIndicator>() == null)
+        {
+            gameObject.AddComponent<MainDoorArrowIndicator>();
         }
     }
 
@@ -180,7 +189,7 @@ public class PlayerController : MonoBehaviour
         if (PauseMenu.IsPaused) return;
 
         // 读取移动输入，后续在物理帧中统一处理位移。
-        moveInput = Input.PlayerActions.Move.ReadValue<Vector2>();
+        moveInput = isInteracting ? Vector2.zero : Input.PlayerActions.Move.ReadValue<Vector2>();
         UpdateCachedLookDirection();
         UpdateInteractionIcon();
         UpdatePlayerAnimation();
@@ -326,6 +335,12 @@ public class PlayerController : MonoBehaviour
 
     private void MovePlayer()
     {
+        if (isInteracting)
+        {
+            Rigidbody.velocity = Vector2.zero;
+            return;
+        }
+
         Rigidbody.velocity = moveInput.normalized * moveSpeed;
 
         // 脚步声

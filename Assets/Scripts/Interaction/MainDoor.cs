@@ -13,6 +13,8 @@ public class MainDoor : MonoBehaviour
 
     private bool isUnlocked = false;
 
+    public bool IsUnlocked => isUnlocked;
+
     /// <summary>
     /// 由 InteractableItem 的 onInteracted 事件调用。
     /// </summary>

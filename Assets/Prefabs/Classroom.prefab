@@ -3166,6 +3166,10 @@ PrefabInstance:
       propertyPath: m_Offset.x
       value: 1.7315435
       objectReference: {fileID: 0}
+    - target: {fileID: 2061292080244602393, guid: fb80d9c82cd363b4fa563f71b9beb632, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2498473440357171656, guid: fb80d9c82cd363b4fa563f71b9beb632, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.24720928
@@ -3415,6 +3419,10 @@ PrefabInstance:
     - target: {fileID: 2061292080244602393, guid: fb80d9c82cd363b4fa563f71b9beb632, type: 3}
       propertyPath: m_Offset.y
       value: -0.67710215
+      objectReference: {fileID: 0}
+    - target: {fileID: 2061292080244602393, guid: fb80d9c82cd363b4fa563f71b9beb632, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2498473440357171656, guid: fb80d9c82cd363b4fa563f71b9beb632, type: 3}
       propertyPath: m_LocalScale.x

@@ -243,7 +243,7 @@ public class MonitorController : MonoBehaviour
             monsterRef.enabled = true;
         monsterRef = null;
 
-        if (playerRef != null)
+        if (playerRef != null && !playerRef.IsInteracting)
             playerRef.Input.EnablePlayerMoveInput();
         playerRef = null;
 
