@@ -13,8 +13,10 @@ public class GameManager : MonoBehaviour
     [Header("Game Settings")]
     [SerializeField] private string mainMenuSceneName = "MainMenu";
     [SerializeField] private string gameSceneName = "SampleScene";
-    [SerializeField] private GameEndMenuUI victoryMenuPrefab;
-    [SerializeField] private GameEndMenuUI failureMenuPrefab;
+    [SerializeField, Tooltip("Drag Assets/Prefabs/UI/VictoryMenu.prefab here. This scene reference is used in builds.")]
+    private GameObject victoryMenuPrefab;
+    [SerializeField, Tooltip("Drag Assets/Prefabs/UI/FailureMenu.prefab here. This scene reference is used in builds.")]
+    private GameObject failureMenuPrefab;
 
     [Header("Black Screen Text")]
     [SerializeField] private bool showOpeningText = true;
@@ -164,7 +166,10 @@ public class GameManager : MonoBehaviour
     {
         if (!TryShowEndMenu(
                 failureMenuPrefab,
-                "Assets/Prefabs/UI/FailureMenu.prefab",
+                "FailureMenu",
+                "\u6311\u6218\u5931\u8d25",
+                "\u91cd\u65b0\u5f00\u59cb",
+                "\u8fd4\u56de\u4e3b\u83dc\u5355",
                 () => SceneManager.LoadScene(gameSceneName),
                 () => SceneManager.LoadScene(mainMenuSceneName)))
         {
@@ -177,7 +182,10 @@ public class GameManager : MonoBehaviour
     {
         if (!TryShowEndMenu(
                 victoryMenuPrefab,
-                "Assets/Prefabs/UI/VictoryMenu.prefab",
+                "VictoryMenu",
+                "\u95ef\u5173\u6210\u529f",
+                "\u91cd\u65b0\u6311\u6218",
+                "\u8fd4\u56de\u4e3b\u83dc\u5355",
                 () => SceneManager.LoadScene(gameSceneName),
                 () => SceneManager.LoadScene(mainMenuSceneName)))
         {
@@ -199,8 +207,11 @@ public class GameManager : MonoBehaviour
     }
 
     private bool TryShowEndMenu(
-        GameEndMenuUI menuPrefab,
-        string prefabPath,
+        GameObject menuPrefab,
+        string fallbackName,
+        string title,
+        string retryLabel,
+        string mainMenuLabel,
         UnityEngine.Events.UnityAction onRetry,
         UnityEngine.Events.UnityAction onMainMenu)
     {
@@ -209,21 +220,23 @@ public class GameManager : MonoBehaviour
             return true;
         }
 
-        if (menuPrefab == null)
-        {
-#if UNITY_EDITOR
-            menuPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameEndMenuUI>(prefabPath);
-#endif
-        }
-
         if (menuPrefab != null)
         {
-            activeEndMenu = Instantiate(menuPrefab.gameObject).GetComponent<GameEndMenuUI>();
+            var menuInstance = Instantiate(menuPrefab);
+            activeEndMenu = menuInstance.GetComponent<GameEndMenuUI>();
+            if (activeEndMenu == null)
+            {
+                Debug.LogError($"{menuPrefab.name} must have a GameEndMenuUI component on its root object.");
+                Destroy(menuInstance);
+                return false;
+            }
         }
         else
         {
-            var menuObject = new GameObject(prefabPath.Contains("Victory") ? "[VictoryMenu]" : "[FailureMenu]");
+            Debug.LogError($"{fallbackName} prefab is not assigned on GameManager. Drag the UI prefab into the GameManager inspector before building.");
+            var menuObject = new GameObject($"[{fallbackName}]");
             activeEndMenu = menuObject.AddComponent<GameEndMenuUI>();
+            activeEndMenu.SetDisplayText(title, retryLabel, mainMenuLabel);
         }
 
         if (activeEndMenu == null)

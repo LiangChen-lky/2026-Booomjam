@@ -13,6 +13,9 @@ public class GameEndMenuUI : MonoBehaviour
     private Text titleText;
     private Button retryButton;
     private Button mainMenuButton;
+    private string fallbackTitle = "\u6e38\u620f\u7ed3\u675f";
+    private string fallbackRetryLabel = "\u91cd\u65b0\u5f00\u59cb";
+    private string fallbackMainMenuLabel = "\u8fd4\u56de\u4e3b\u83dc\u5355";
 
     private UnityEngine.Events.UnityAction retryAction;
     private UnityEngine.Events.UnityAction mainMenuAction;
@@ -47,6 +50,21 @@ public class GameEndMenuUI : MonoBehaviour
             mainMenuButton.onClick.RemoveAllListeners();
             mainMenuButton.onClick.AddListener(HandleMainMenuClicked);
         }
+    }
+
+    public void SetDisplayText(string title, string retryLabel, string mainMenuLabel)
+    {
+        fallbackTitle = title;
+        fallbackRetryLabel = retryLabel;
+        fallbackMainMenuLabel = mainMenuLabel;
+
+        if (titleText != null)
+        {
+            titleText.text = fallbackTitle;
+        }
+
+        SetButtonText(retryButton, fallbackRetryLabel);
+        SetButtonText(mainMenuButton, fallbackMainMenuLabel);
     }
 
     public void Show()
@@ -145,7 +163,7 @@ public class GameEndMenuUI : MonoBehaviour
         var titleObj = new GameObject("Title");
         titleObj.transform.SetParent(menuRoot.transform, false);
         titleText = titleObj.AddComponent<Text>();
-        titleText.text = "游戏结束";
+        titleText.text = fallbackTitle;
         titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         titleText.fontSize = 52;
         titleText.color = Color.white;
@@ -174,8 +192,8 @@ public class GameEndMenuUI : MonoBehaviour
         btnRect.anchoredPosition = new Vector2(0f, -20f);
         btnRect.sizeDelta = new Vector2(320f, 180f);
 
-        retryButton = CreateButton(buttons.transform, "RetryButton", "重新开始");
-        mainMenuButton = CreateButton(buttons.transform, "MainMenuButton", "返回主菜单");
+        retryButton = CreateButton(buttons.transform, "RetryButton", fallbackRetryLabel);
+        mainMenuButton = CreateButton(buttons.transform, "MainMenuButton", fallbackMainMenuLabel);
 
         ConfigureButton(retryButton, HandleRetryClicked);
         ConfigureButton(mainMenuButton, HandleMainMenuClicked);
@@ -214,6 +232,20 @@ public class GameEndMenuUI : MonoBehaviour
         textRect.offsetMax = Vector2.zero;
 
         return button;
+    }
+
+    private static void SetButtonText(Button button, string label)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        var text = button.GetComponentInChildren<Text>(true);
+        if (text != null)
+        {
+            text.text = label;
+        }
     }
 
     private static void ConfigureButton(Button button, UnityEngine.Events.UnityAction action)

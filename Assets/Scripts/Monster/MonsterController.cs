@@ -25,6 +25,10 @@ public class MonsterController : MonoBehaviour
     [SerializeField] private Sprite[] runFrames;
     [SerializeField, Min(1f)] private float runFrameRate = 12f;
     [SerializeField, Min(0f)] private float movementAnimationThreshold = 0.01f;
+    [SerializeField, Tooltip("Rotate only the visual child to face the movement direction. The monster root is never rotated.")]
+    private bool faceMovementDirection = true;
+    [SerializeField, Tooltip("Degrees added to the visual angle. Use 0 when the sprite faces right by default.")]
+    private float visualRotationOffset = 0f;
 
     [Header("Debug")]
     [SerializeField] private MonsterState currentState = MonsterState.Wandering;
@@ -431,6 +435,8 @@ public class MonsterController : MonoBehaviour
             return;
         }
 
+        UpdateVisualFacing(next - current);
+
         if (rb != null)
         {
             rb.MovePosition(next);
@@ -439,6 +445,20 @@ public class MonsterController : MonoBehaviour
         {
             transform.position = next;
         }
+    }
+
+    private void UpdateVisualFacing(Vector3 movementDelta)
+    {
+        if (!faceMovementDirection || spriteRenderer == null) return;
+
+        Transform visualTransform = spriteRenderer.transform;
+        if (visualTransform == null || visualTransform == transform) return;
+
+        Vector2 direction = movementDelta;
+        if (direction.sqrMagnitude <= 0.0001f) return;
+
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + visualRotationOffset;
+        visualTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
     }
 
     private List<Vector3> BuildPathPoints(Path path)
