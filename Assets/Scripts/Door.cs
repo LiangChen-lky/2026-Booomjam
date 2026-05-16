@@ -94,20 +94,13 @@ public class Door : MonoBehaviour
     private void UpdateNavGraph(Bounds changedBounds)
     {
         Collider2D[] colliders = GetComponentsInChildren<Collider2D>(true);
-        if (!isOpen)
-        {
-            AstarPath.active.UpdateGraphs(changedBounds);
-            AstarPath.active.FlushGraphUpdates();
-            return;
-        }
-
-        bool[] triggerWasEnabled = new bool[colliders.Length];
+        bool[] wasEnabled = new bool[colliders.Length];
         for (int i = 0; i < colliders.Length; i++)
         {
             Collider2D col = colliders[i];
-            if (col != null && col.isTrigger)
+            if (col != null)
             {
-                triggerWasEnabled[i] = col.enabled;
+                wasEnabled[i] = col.enabled;
                 col.enabled = false;
             }
         }
@@ -122,9 +115,9 @@ public class Door : MonoBehaviour
             for (int i = 0; i < colliders.Length; i++)
             {
                 Collider2D col = colliders[i];
-                if (col != null && col.isTrigger)
+                if (col != null)
                 {
-                    col.enabled = triggerWasEnabled[i];
+                    col.enabled = wasEnabled[i];
                 }
             }
         }

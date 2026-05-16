@@ -67,6 +67,7 @@ public class CameraRoomManager : MonoBehaviour
     private Collider2D defaultMainCameraBounds;
     private Transform playerTransform;
     private float nextRoomKeyHintCheckTime;
+    private Coroutine pendingRoomKeyHintCoroutine;
 
     private void Start()
     {
@@ -268,6 +269,46 @@ public class CameraRoomManager : MonoBehaviour
         if (!showRoomKeyHint || string.IsNullOrEmpty(roomName))
             return;
 
+        if (!TravelBagAllocator.HasDistributed && GetSceneTravelBags().Length > 0)
+        {
+            QueueDelayedRoomKeyHint(roomName);
+            return;
+        }
+
+        ShowRoomKeyHintNow(roomName);
+    }
+
+    private void QueueDelayedRoomKeyHint(string roomName)
+    {
+        if (pendingRoomKeyHintCoroutine != null)
+        {
+            StopCoroutine(pendingRoomKeyHintCoroutine);
+        }
+
+        pendingRoomKeyHintCoroutine = StartCoroutine(ShowRoomKeyHintAfterDistribution(roomName));
+    }
+
+    private IEnumerator ShowRoomKeyHintAfterDistribution(string roomName)
+    {
+        const int maxWaitFrames = 30;
+        int waitedFrames = 0;
+
+        while (!TravelBagAllocator.HasDistributed && waitedFrames < maxWaitFrames)
+        {
+            waitedFrames++;
+            yield return null;
+        }
+
+        pendingRoomKeyHintCoroutine = null;
+
+        if (showRoomKeyHint && currentRoom == roomName)
+        {
+            ShowRoomKeyHintNow(roomName);
+        }
+    }
+
+    private void ShowRoomKeyHintNow(string roomName)
+    {
         CachePlayerTransform();
         if (playerTransform != null)
         {
@@ -278,7 +319,7 @@ public class CameraRoomManager : MonoBehaviour
             }
         }
 
-        int hiddenKeyContainerCount = CountHiddenKeyContainersInRoom(roomName);
+        int hiddenKeyContainerCount = CountUnopenedKeyContainersInRoom(roomName);
         string message = string.IsNullOrWhiteSpace(roomKeyContainerHintFormat)
             ? hiddenKeyContainerCount.ToString()
             : string.Format(roomKeyContainerHintFormat, hiddenKeyContainerCount);
@@ -286,24 +327,75 @@ public class CameraRoomManager : MonoBehaviour
         ScreenHintPanel.Show(message);
     }
 
-    private int CountHiddenKeyContainersInRoom(string roomName)
+    private int CountUnopenedKeyContainersInRoom(string roomName)
     {
         int count = 0;
         var bags = GetSceneTravelBags();
+        var boundsByRoom = BuildRoomBoundsMap();
 
         foreach (var bag in bags)
         {
-            if (bag == null || bag.IsOpened || !bag.HasKey)
+            if (bag == null || bag.IsOpened)
                 continue;
 
-            string bagRoom = FindRoomAtPosition(bag.transform.position);
-            if (bagRoom == roomName)
+            if (IsTravelBagInRoom(bag, roomName, boundsByRoom))
             {
                 count++;
             }
         }
 
         return count;
+    }
+
+    private bool IsTravelBagInRoom(TravelBag bag, string roomName, Dictionary<string, PolygonCollider2D> boundsByRoom)
+    {
+        if (bag == null || string.IsNullOrEmpty(roomName))
+            return false;
+
+        if (!boundsByRoom.TryGetValue(roomName, out var roomBoundary) || roomBoundary == null)
+        {
+            return FindRoomAtPosition(bag.transform.position) == roomName;
+        }
+
+        if (roomBoundary.OverlapPoint(bag.transform.position))
+            return true;
+
+        var colliders = bag.GetComponentsInChildren<Collider2D>(true);
+        foreach (var collider in colliders)
+        {
+            if (collider != null && BoundsTouchesRoom(collider.bounds, roomBoundary))
+                return true;
+        }
+
+        var renderers = bag.GetComponentsInChildren<Renderer>(true);
+        foreach (var renderer in renderers)
+        {
+            if (renderer != null && BoundsTouchesRoom(renderer.bounds, roomBoundary))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool BoundsTouchesRoom(Bounds bounds, PolygonCollider2D roomBoundary)
+    {
+        if (roomBoundary == null)
+            return false;
+
+        if (!bounds.Intersects(roomBoundary.bounds))
+            return false;
+
+        Vector3 min = bounds.min;
+        Vector3 max = bounds.max;
+        Vector2 center = bounds.center;
+        if (roomBoundary.OverlapPoint(center))
+            return true;
+
+        return roomBoundary.OverlapPoint(new Vector2(min.x, min.y))
+            || roomBoundary.OverlapPoint(new Vector2(min.x, max.y))
+            || roomBoundary.OverlapPoint(new Vector2(max.x, min.y))
+            || roomBoundary.OverlapPoint(new Vector2(max.x, max.y))
+            || roomBoundary.bounds.Contains(center);
     }
 
     private void SwitchAmbientForRoom(string roomName)

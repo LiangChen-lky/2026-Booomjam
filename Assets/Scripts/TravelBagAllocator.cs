@@ -12,8 +12,10 @@ public class TravelBagAllocator : MonoBehaviour
     [SerializeField, Min(0)] private int totalSceneKeys = KeyGameConfig.DefaultKeyCount;
 
     private bool distributionQueued;
+    private bool hasDistributed;
 
     public static TravelBagAllocator Instance => instance;
+    public static bool HasDistributed => instance != null && instance.hasDistributed;
 
     public static void RequestDistribution()
     {
@@ -80,6 +82,7 @@ public class TravelBagAllocator : MonoBehaviour
         var bags = FindObjectsOfType<TravelBag>(true);
         if (bags == null || bags.Length == 0)
         {
+            hasDistributed = true;
             return;
         }
 
@@ -101,6 +104,8 @@ public class TravelBagAllocator : MonoBehaviour
         {
             // Scene has fewer bags than configured keys; extra keys are skipped.
         }
+
+        hasDistributed = true;
     }
 
     private void Shuffle<T>(List<T> items)

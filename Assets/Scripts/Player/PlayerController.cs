@@ -717,18 +717,15 @@ public class PlayerController : MonoBehaviour
 
         changedBounds.Expand(DoorNavGraphUpdatePadding);
         Collider2D[] colliders = door.GetComponentsInChildren<Collider2D>(true);
-        bool[] triggerWasEnabled = new bool[colliders.Length];
+        bool[] wasEnabled = new bool[colliders.Length];
 
-        if (isOpened)
+        for (int i = 0; i < colliders.Length; i++)
         {
-            for (int i = 0; i < colliders.Length; i++)
+            Collider2D col = colliders[i];
+            if (col != null)
             {
-                Collider2D col = colliders[i];
-                if (col != null && col.isTrigger)
-                {
-                    triggerWasEnabled[i] = col.enabled;
-                    col.enabled = false;
-                }
+                wasEnabled[i] = col.enabled;
+                col.enabled = false;
             }
         }
 
@@ -739,15 +736,12 @@ public class PlayerController : MonoBehaviour
         }
         finally
         {
-            if (isOpened)
+            for (int i = 0; i < colliders.Length; i++)
             {
-                for (int i = 0; i < colliders.Length; i++)
+                Collider2D col = colliders[i];
+                if (col != null)
                 {
-                    Collider2D col = colliders[i];
-                    if (col != null && col.isTrigger)
-                    {
-                        col.enabled = triggerWasEnabled[i];
-                    }
+                    col.enabled = wasEnabled[i];
                 }
             }
         }

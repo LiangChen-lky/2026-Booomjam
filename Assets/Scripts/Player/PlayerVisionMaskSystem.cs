@@ -43,6 +43,7 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     private Material maskMaterial;
     private bool forceHidden;
     private bool showRuntimeDebugControls;
+    private bool createdAtRuntimeFallback;
     private Rect debugWindowRect = new Rect(16f, 16f, 280f, 136f);
 
     private static PlayerVisionMaskSystem instance;
@@ -63,8 +64,15 @@ public class PlayerVisionMaskSystem : MonoBehaviour
     {
         if (instance != null && instance != this)
         {
-            Destroy(gameObject);
-            return;
+            if (!createdAtRuntimeFallback && instance.createdAtRuntimeFallback)
+            {
+                Destroy(instance.gameObject);
+            }
+            else
+            {
+                Destroy(gameObject);
+                return;
+            }
         }
 
         instance = this;
@@ -92,9 +100,12 @@ public class PlayerVisionMaskSystem : MonoBehaviour
         }
 
         var root = new GameObject(nameof(PlayerVisionMaskSystem));
+        root.SetActive(false);
         var maskSystem = root.AddComponent<PlayerVisionMaskSystem>();
+        maskSystem.createdAtRuntimeFallback = true;
         maskSystem.persistAcrossScenes = true;
         DontDestroyOnLoad(root);
+        root.SetActive(true);
     }
 
     private void OnEnable()

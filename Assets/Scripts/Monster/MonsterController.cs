@@ -32,6 +32,8 @@ public class MonsterController : MonoBehaviour
     [Header("Door")]
     [SerializeField, Tooltip("Distance used to detect doors in front of the monster.")]
     private float doorDetectionRange = 1.5f;
+    [SerializeField, Tooltip("If enabled, the monster navigation graph is scanned with door colliders ignored.")]
+    private bool ignoreDoorsForNavigation = true;
 
     [Header("Path")]
     [SerializeField, Tooltip("How close the monster must get to a waypoint before moving to the next one.")]
@@ -113,6 +115,7 @@ public class MonsterController : MonoBehaviour
         }
 
         EnsureNavigationGraphClearance();
+        RefreshNavigationGraphIgnoringDoors();
         SwitchToWandering();
     }
 
@@ -500,6 +503,11 @@ public class MonsterController : MonoBehaviour
             if (hitCollider == null || hitCollider.isTrigger) continue;
             if (bodyCollider != null && hitCollider == bodyCollider) continue;
             if (rb != null && hitCollider.attachedRigidbody == rb) continue;
+            if (TryResolveDoor(hitCollider, out GameObject doorObject, out Door doorComponent))
+            {
+                OpenDoorIfNeeded(doorObject, doorComponent);
+                continue;
+            }
 
             allowedDistance = Mathf.Min(allowedDistance, Mathf.Max(0f, movementHits[i].distance - 0.02f));
         }
@@ -675,6 +683,41 @@ public class MonsterController : MonoBehaviour
         }
     }
 
+    private void RefreshNavigationGraphIgnoringDoors()
+    {
+        if (!ignoreDoorsForNavigation || AstarPath.active == null)
+        {
+            return;
+        }
+
+        Collider2D[] colliders = FindObjectsOfType<Collider2D>();
+        List<Collider2D> disabledColliders = new List<Collider2D>();
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D col = colliders[i];
+            if (col == null || !col.enabled || col.isTrigger) continue;
+            if (!TryResolveDoor(col, out _, out _)) continue;
+
+            col.enabled = false;
+            disabledColliders.Add(col);
+        }
+
+        try
+        {
+            AstarPath.active.Scan();
+        }
+        finally
+        {
+            for (int i = 0; i < disabledColliders.Count; i++)
+            {
+                if (disabledColliders[i] != null)
+                {
+                    disabledColliders[i].enabled = true;
+                }
+            }
+        }
+    }
+
     private bool IsPositionClear(Vector3 position)
     {
         if (movementBlockMask.value == 0)
@@ -717,6 +760,7 @@ public class MonsterController : MonoBehaviour
             if (hitCollider == null || hitCollider.isTrigger) continue;
             if (bodyCollider != null && hitCollider == bodyCollider) continue;
             if (rb != null && hitCollider.attachedRigidbody == rb) continue;
+            if (TryResolveDoor(hitCollider, out _, out _)) continue;
             return true;
         }
 
@@ -746,21 +790,23 @@ public class MonsterController : MonoBehaviour
         {
             if (!TryResolveDoor(hit, out GameObject doorObject, out Door doorComponent)) continue;
 
-            if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen))
-            {
-                continue;
-            }
-
             Vector2 doorDir = ((Vector2)doorObject.transform.position - (Vector2)transform.position).normalized;
             float dot = Vector2.Dot(direction, doorDir);
             if (dot <= 0.5f) continue;
 
-            int doorId = doorObject.GetInstanceID();
-            if (!openedDoorIds.Contains(doorId))
-            {
-                OpenDoor(doorObject, doorComponent);
-            }
+            OpenDoorIfNeeded(doorObject, doorComponent);
         }
+    }
+
+    private void OpenDoorIfNeeded(GameObject door, Door doorComponent)
+    {
+        if (door == null) return;
+        if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen)) return;
+
+        int doorId = door.GetInstanceID();
+        if (openedDoorIds.Contains(doorId)) return;
+
+        OpenDoor(door, doorComponent);
     }
 
     private bool TryResolveDoor(Collider2D hit, out GameObject doorObject, out Door doorComponent)
@@ -779,7 +825,7 @@ public class MonsterController : MonoBehaviour
         Transform current = hit.transform;
         while (current != null)
         {
-            if (current.CompareTag("Door"))
+            if (current.CompareTag("Door") && IsDoorObject(current))
             {
                 doorObject = current.gameObject;
                 return true;
@@ -789,6 +835,20 @@ public class MonsterController : MonoBehaviour
         }
 
         return false;
+    }
+
+    private bool IsDoorObject(Transform candidate)
+    {
+        if (candidate == null) return false;
+
+        string objectName = candidate.gameObject.name;
+        if (string.Equals(objectName, "Doors", System.StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.Equals(objectName, "DoorTriggers", System.StringComparison.OrdinalIgnoreCase)) return false;
+
+        return objectName.IndexOf("door", System.StringComparison.OrdinalIgnoreCase) >= 0
+            && (candidate.GetComponent<SpriteRenderer>() != null
+                || candidate.GetComponent<Collider2D>() != null
+                || candidate.GetComponent<Door>() != null);
     }
 
     private void OpenDoor(GameObject door, Door doorComponent)
