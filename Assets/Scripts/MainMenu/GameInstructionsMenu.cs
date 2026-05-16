@@ -28,7 +28,8 @@ public class GameInstructionsMenu : MonoBehaviour
 
     private void Awake()
     {
-        EnsureUI();
+        if (ShouldBuildDefaultUI())
+            EnsureUI();
         CacheReferences();
         if (backButton != null)
             backButton.onClick.AddListener(OnBackClicked);
@@ -37,6 +38,11 @@ public class GameInstructionsMenu : MonoBehaviour
     public void Initialize(UnityAction onClose)
     {
         closeAction = onClose;
+    }
+
+    private bool ShouldBuildDefaultUI()
+    {
+        return !uiBuilt && transform.childCount == 0;
     }
 
     private void EnsureUI()

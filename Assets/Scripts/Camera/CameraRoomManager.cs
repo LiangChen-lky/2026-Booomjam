@@ -38,11 +38,11 @@ public class CameraRoomManager : MonoBehaviour
     [SerializeField, Min(0f), Tooltip("Damping used by room camera Confiner2D components when auto-aligning room cameras.")]
     private float roomCameraConfinerDamping = 0.5f;
 
-    [Header("Room Key Hint")]
-    [SerializeField, Tooltip("Show how many uncollected keys are in a room when the player enters it.")]
+    [Header("Room Key Container Hint")]
+    [SerializeField, Tooltip("Show how many unopened key-hiding containers are in a room when the player enters it.")]
     private bool showRoomKeyHint = true;
     [SerializeField]
-    private string roomKeyHintFormat = "这个房间里有 {0} 把钥匙";
+    private string roomKeyContainerHintFormat = "这个房间里还有 {0} 个藏匿钥匙的容器";
     [SerializeField, Tooltip("Also detect the player's current room from RoomBounds, so hints still work if a door trigger misses.")]
     private bool detectPlayerRoomForKeyHint = true;
     [SerializeField, Tooltip("Allow RoomBounds polling to retarget the main follow camera confiner. Keep off so camera bounds only change through door triggers.")]
@@ -278,15 +278,15 @@ public class CameraRoomManager : MonoBehaviour
             }
         }
 
-        int keyCount = CountKeysInRoom(roomName);
-        string message = string.IsNullOrWhiteSpace(roomKeyHintFormat)
-            ? keyCount.ToString()
-            : string.Format(roomKeyHintFormat, keyCount);
+        int hiddenKeyContainerCount = CountHiddenKeyContainersInRoom(roomName);
+        string message = string.IsNullOrWhiteSpace(roomKeyContainerHintFormat)
+            ? hiddenKeyContainerCount.ToString()
+            : string.Format(roomKeyContainerHintFormat, hiddenKeyContainerCount);
 
         ScreenHintPanel.Show(message);
     }
 
-    private int CountKeysInRoom(string roomName)
+    private int CountHiddenKeyContainersInRoom(string roomName)
     {
         int count = 0;
         var bags = GetSceneTravelBags();

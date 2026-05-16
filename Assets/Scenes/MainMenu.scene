@@ -257,7 +257,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 553, y: 56}
+  m_AnchoredPosition: {x: 3, y: -146}
   m_SizeDelta: {x: 234.3898, y: 336.1059}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &186334374
@@ -278,7 +278,7 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 0
+  m_Spacing: -107.3
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 0
@@ -396,8 +396,8 @@ MonoBehaviour:
   instructionsButton: {fileID: 1990010005}
   settingsButton: {fileID: 1261214575}
   exitButton: {fileID: 875954201}
-  instructionsButtonSprite: {fileID: 0}
-  settingsPanelPrefab: {fileID: 0}
+  settingsPanelPrefab: {fileID: 365387047405995617, guid: e42524d1ed09bad4c89e577df07d2736, type: 3}
+  instructionsPanelPrefab: {fileID: 365387047405995617, guid: 3339501fb8bd0994f8ca9b41d5986d70, type: 3}
 --- !u!4 &769317410
 Transform:
   m_ObjectHideFlags: 0

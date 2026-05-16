@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Pathfinding;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -89,6 +90,7 @@ public class PlayerController : MonoBehaviour
     private bool hasCachedLookDirection = false;
     private readonly Collider2D[] interactionOverlapArray = new Collider2D[32];
     private readonly HashSet<int> openedDoorIds = new HashSet<int>();
+    private const float DoorNavGraphUpdatePadding = 0.1f;
     private float lastFootstepTime;
     private bool playerRequestedCursorVisible;
     private bool wasRunning;
@@ -604,8 +606,8 @@ public class PlayerController : MonoBehaviour
     // 和门交互：按同一交互键切换开/关门。
     private void InteractWithDoor(GameObject door)
     {
+        door = ResolveDoorObject(door, out Door doorComponent);
         int doorId = door.GetInstanceID();
-        var doorComponent = door.GetComponent<Door>();
         bool isOpened = doorComponent != null ? doorComponent.IsOpen : openedDoorIds.Contains(doorId);
         if (isOpened)
         {
@@ -630,12 +632,14 @@ public class PlayerController : MonoBehaviour
 
     private void SetDoorOpenedState(GameObject door, bool isOpened)
     {
-        var doorComponent = door.GetComponent<Door>();
+        door = ResolveDoorObject(door, out Door doorComponent);
         if (doorComponent != null)
         {
             doorComponent.ApplyOpenState(isOpened, doorOpenedSpriteAlpha);
             return;
         }
+
+        bool hadBounds = TryGetColliderBounds(door, out Bounds changedBounds);
 
         var sr = door.GetComponentInChildren<SpriteRenderer>(true);
         if (sr != null)
@@ -650,6 +654,102 @@ public class PlayerController : MonoBehaviour
             // 只禁用物理碰撞体（非 trigger），保留 trigger 用于交互检测
             if (!col.isTrigger)
                 col.enabled = !isOpened;
+        }
+
+        if (hadBounds)
+        {
+            UpdateDoorGraphs(door, changedBounds, isOpened);
+        }
+    }
+
+    private GameObject ResolveDoorObject(GameObject candidate, out Door doorComponent)
+    {
+        doorComponent = null;
+        if (candidate == null) return null;
+
+        doorComponent = candidate.GetComponentInParent<Door>();
+        if (doorComponent != null)
+        {
+            return doorComponent.gameObject;
+        }
+
+        Transform current = candidate.transform;
+        while (current != null)
+        {
+            if (current.CompareTag(doorTag))
+            {
+                return current.gameObject;
+            }
+
+            current = current.parent;
+        }
+
+        return candidate;
+    }
+
+    private bool TryGetColliderBounds(GameObject root, out Bounds bounds)
+    {
+        bounds = new Bounds();
+        bool hasBounds = false;
+        if (root == null) return false;
+
+        foreach (Collider2D col in root.GetComponentsInChildren<Collider2D>(true))
+        {
+            if (col == null || !col.enabled) continue;
+
+            if (!hasBounds)
+            {
+                bounds = col.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private void UpdateDoorGraphs(GameObject door, Bounds changedBounds, bool isOpened)
+    {
+        if (AstarPath.active == null) return;
+
+        changedBounds.Expand(DoorNavGraphUpdatePadding);
+        Collider2D[] colliders = door.GetComponentsInChildren<Collider2D>(true);
+        bool[] triggerWasEnabled = new bool[colliders.Length];
+
+        if (isOpened)
+        {
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider2D col = colliders[i];
+                if (col != null && col.isTrigger)
+                {
+                    triggerWasEnabled[i] = col.enabled;
+                    col.enabled = false;
+                }
+            }
+        }
+
+        try
+        {
+            AstarPath.active.UpdateGraphs(changedBounds);
+            AstarPath.active.FlushGraphUpdates();
+        }
+        finally
+        {
+            if (isOpened)
+            {
+                for (int i = 0; i < colliders.Length; i++)
+                {
+                    Collider2D col = colliders[i];
+                    if (col != null && col.isTrigger)
+                    {
+                        col.enabled = triggerWasEnabled[i];
+                    }
+                }
+            }
         }
     }
 
@@ -688,20 +788,19 @@ public class PlayerController : MonoBehaviour
 
         if (TryGetObjectInRange(doorTag, out targetObject))
         {
-            var door = targetObject.GetComponent<Door>();
+            var selectedDoor = ResolveDoorObject(targetObject, out Door door);
             if (door != null && door.RequiresPlayerFirstOpen)
             {
-                var selectedDoor = targetObject;
                 ConfirmPanel.Show("是否撬开门", this, () =>
                 {
-                    var selectedDoorComponent = selectedDoor.GetComponent<Door>();
+                    var selectedDoorComponent = selectedDoor.GetComponentInParent<Door>();
                     selectedDoorComponent?.MarkPlayerFirstOpenCompleted();
                     InteractWithDoor(selectedDoor);
                 });
                 return;
             }
 
-            InteractWithDoor(targetObject);
+            InteractWithDoor(selectedDoor);
         }
     }
 

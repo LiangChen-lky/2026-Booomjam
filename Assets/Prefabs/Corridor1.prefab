@@ -570,8 +570,6 @@ Transform:
   m_LocalScale: {x: 1.8653822, y: 0.60177267, z: 0.86742}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6420343534572835792}
-  - {fileID: 3074858504358986028}
   - {fileID: 1238470357549903740}
   - {fileID: 6837945491199850777}
   - {fileID: 3805150289677902759}
@@ -859,11 +857,11 @@ Transform:
   m_GameObject: {fileID: 3097310970499445698}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -3.91, y: -6.63, z: -488.7081}
-  m_LocalScale: {x: 0.6325835, y: 2.3380089, z: 1.152844}
+  m_LocalPosition: {x: -5.902146, y: 11.675405, z: -33.167095}
+  m_LocalScale: {x: 1.18001, y: 1.40695, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 7540550388747897343}
+  m_Father: {fileID: 1238470357549903740}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &6260048527066273226
 SpriteRenderer:
@@ -1233,11 +1231,11 @@ Transform:
   m_GameObject: {fileID: 3252158010063454848}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.0035040672, w: 0.99999386}
-  m_LocalPosition: {x: 12.4986, y: -6.5394993, z: -488.70807}
-  m_LocalScale: {x: 0.56603616, y: 1.9417119, z: 1.152844}
+  m_LocalPosition: {x: 24.706165, y: 11.729864, z: -33.16707}
+  m_LocalScale: {x: 1.0558386, y: 1.1685897, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 7540550388747897343}
+  m_Father: {fileID: 1238470357549903740}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: -0.402}
 --- !u!212 &1443678176694090660
 SpriteRenderer:
@@ -2369,7 +2367,7 @@ GameObject:
   m_Layer: 0
   m_HasEditorInfo: 1
   m_Name: Door
-  m_TagString: Untagged
+  m_TagString: Door
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2390,6 +2388,8 @@ Transform:
   - {fileID: 3076134929672318327}
   - {fileID: 5753807489176641051}
   - {fileID: 5647029883455514953}
+  - {fileID: 6420343534572835792}
+  - {fileID: 3074858504358986028}
   m_Father: {fileID: 7540550388747897343}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7006406416594806640

@@ -8,8 +8,8 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private Button instructionsButton;
     [SerializeField] private Button settingsButton;
     [SerializeField] private Button exitButton;
-    [SerializeField] private Sprite instructionsButtonSprite;
     [SerializeField] private GameObject settingsPanelPrefab;
+    [SerializeField] private GameObject instructionsPanelPrefab;
 
     private GameObject settingsPanel;
     private GameObject instructionsPanel;
@@ -17,10 +17,9 @@ public class MainMenuUI : MonoBehaviour
     private void Awake()
     {
         ResolveReferences();
-        EnsureInstructionsButton();
         startButton.onClick.AddListener(OnStartGame);
         if (instructionsButton != null)
-            instructionsButton.onClick.AddListener(OnInstructions);
+            AddInstructionsButtonListener();
         settingsButton.onClick.AddListener(OnSettings);
         exitButton.onClick.AddListener(OnExitGame);
 
@@ -62,40 +61,27 @@ public class MainMenuUI : MonoBehaviour
         if (exitButton == null) exitButton = FindChildComponent<Button>("ExitButton");
     }
 
-    private void EnsureInstructionsButton()
+    private void AddInstructionsButtonListener()
     {
-        if (instructionsButton != null)
+        if (HasPersistentInstructionsListener())
             return;
 
-        var buttonsParent = FindSceneTransform("Buttons");
-        if (buttonsParent == null)
-            return;
-
-        var template = buttonsParent.Find("StartButton");
-        if (template == null)
-            template = buttonsParent.Find("SettingsButton");
-        if (template == null)
-            return;
-
-        var buttonObject = Instantiate(template.gameObject, buttonsParent);
-        buttonObject.name = "ExplainButton";
-        buttonObject.transform.SetSiblingIndex(Mathf.Min(1, buttonsParent.childCount - 1));
-
-        var image = buttonObject.GetComponent<Image>();
-        var sprite = instructionsButtonSprite != null ? instructionsButtonSprite : LoadDefaultInstructionsButtonSprite();
-        if (image != null && sprite != null)
-            image.sprite = sprite;
-
-        instructionsButton = buttonObject.GetComponent<Button>();
+        instructionsButton.onClick.RemoveListener(ShowInstructions);
+        instructionsButton.onClick.AddListener(ShowInstructions);
     }
 
-    private static Sprite LoadDefaultInstructionsButtonSprite()
+    private bool HasPersistentInstructionsListener()
     {
-#if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/ui/ui_start_说明.png");
-#else
-        return null;
-#endif
+        for (int i = 0; i < instructionsButton.onClick.GetPersistentEventCount(); i++)
+        {
+            if (instructionsButton.onClick.GetPersistentTarget(i) == this
+                && instructionsButton.onClick.GetPersistentMethodName(i) == nameof(ShowInstructions))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void EnsureSettingsPanel()
@@ -196,7 +182,7 @@ public class MainMenuUI : MonoBehaviour
             settingsPanel.SetActive(true);
     }
 
-    private void OnInstructions()
+    public void ShowInstructions()
     {
         AudioManager.Instance.Play(SFX.UIClick);
         if (settingsPanel != null)
@@ -228,11 +214,36 @@ public class MainMenuUI : MonoBehaviour
         if (canvas == null)
             return;
 
-        instructionsPanel = new GameObject("InstructionsPanel");
-        instructionsPanel.transform.SetParent(canvas.transform, false);
-        var menu = instructionsPanel.AddComponent<GameInstructionsMenu>();
+        var prefab = instructionsPanelPrefab != null ? instructionsPanelPrefab : LoadInstructionsPanelPrefab();
+        if (prefab != null)
+        {
+            instructionsPanel = Instantiate(prefab, canvas.transform, false);
+            instructionsPanel.name = "InstructionsPanel";
+        }
+        else
+        {
+            instructionsPanel = new GameObject("InstructionsPanel");
+            instructionsPanel.transform.SetParent(canvas.transform, false);
+        }
+
+        var menu = instructionsPanel.GetComponent<GameInstructionsMenu>();
+        if (menu == null)
+            menu = instructionsPanel.AddComponent<GameInstructionsMenu>();
         menu.Initialize(ReturnFromInstructions);
         instructionsPanel.SetActive(false);
+    }
+
+    private GameObject LoadInstructionsPanelPrefab()
+    {
+        var fromResources = Resources.Load<GameObject>("UI/InstructionsPanel");
+        if (fromResources != null)
+            return fromResources;
+#if UNITY_EDITOR
+        const string prefabPath = "Assets/Prefabs/UI/InstructionsPanel.prefab";
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+#else
+        return null;
+#endif
     }
 
     private void OnExitGame()

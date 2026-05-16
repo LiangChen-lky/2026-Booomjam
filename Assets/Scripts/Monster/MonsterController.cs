@@ -744,30 +744,56 @@ public class MonsterController : MonoBehaviour
 
         foreach (Collider2D hit in hits)
         {
-            if (hit == null || !hit.CompareTag("Door")) continue;
+            if (!TryResolveDoor(hit, out GameObject doorObject, out Door doorComponent)) continue;
 
-            Door doorComponent = hit.GetComponent<Door>();
             if (doorComponent != null && (!doorComponent.CanMonsterOpen || doorComponent.IsOpen))
             {
                 continue;
             }
 
-            Vector2 doorDir = ((Vector2)hit.transform.position - (Vector2)transform.position).normalized;
+            Vector2 doorDir = ((Vector2)doorObject.transform.position - (Vector2)transform.position).normalized;
             float dot = Vector2.Dot(direction, doorDir);
             if (dot <= 0.5f) continue;
 
-            int doorId = hit.GetInstanceID();
+            int doorId = doorObject.GetInstanceID();
             if (!openedDoorIds.Contains(doorId))
             {
-                OpenDoor(hit.gameObject);
+                OpenDoor(doorObject, doorComponent);
             }
         }
     }
 
-    private void OpenDoor(GameObject door)
+    private bool TryResolveDoor(Collider2D hit, out GameObject doorObject, out Door doorComponent)
+    {
+        doorObject = null;
+        doorComponent = null;
+        if (hit == null) return false;
+
+        doorComponent = hit.GetComponentInParent<Door>();
+        if (doorComponent != null)
+        {
+            doorObject = doorComponent.gameObject;
+            return true;
+        }
+
+        Transform current = hit.transform;
+        while (current != null)
+        {
+            if (current.CompareTag("Door"))
+            {
+                doorObject = current.gameObject;
+                return true;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
+    }
+
+    private void OpenDoor(GameObject door, Door doorComponent)
     {
         int doorId = door.GetInstanceID();
-        Door doorComponent = door.GetComponent<Door>();
         if (doorComponent != null)
         {
             if (!doorComponent.CanMonsterOpen || doorComponent.IsOpen) return;
@@ -775,6 +801,8 @@ public class MonsterController : MonoBehaviour
         }
         else
         {
+            bool hadBounds = TryGetColliderBounds(door, out Bounds changedBounds);
+
             SpriteRenderer sr = door.GetComponentInChildren<SpriteRenderer>(true);
             if (sr != null)
             {
@@ -790,6 +818,11 @@ public class MonsterController : MonoBehaviour
                     col.enabled = false;
                 }
             }
+
+            if (hadBounds)
+            {
+                UpdateGraphsForDoor(door, changedBounds);
+            }
         }
 
         openedDoorIds.Add(doorId);
@@ -798,6 +831,66 @@ public class MonsterController : MonoBehaviour
         if (hasDestination)
         {
             RequestPathToNearestWalkable(currentDestination);
+        }
+    }
+
+    private bool TryGetColliderBounds(GameObject root, out Bounds bounds)
+    {
+        bounds = new Bounds();
+        bool hasBounds = false;
+        if (root == null) return false;
+
+        foreach (Collider2D col in root.GetComponentsInChildren<Collider2D>(true))
+        {
+            if (col == null || !col.enabled) continue;
+
+            if (!hasBounds)
+            {
+                bounds = col.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private void UpdateGraphsForDoor(GameObject door, Bounds bounds)
+    {
+        if (AstarPath.active == null) return;
+
+        bounds.Expand(NavGraphClearancePadding);
+        Collider2D[] colliders = door.GetComponentsInChildren<Collider2D>(true);
+        bool[] triggerWasEnabled = new bool[colliders.Length];
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D col = colliders[i];
+            if (col != null && col.isTrigger)
+            {
+                triggerWasEnabled[i] = col.enabled;
+                col.enabled = false;
+            }
+        }
+
+        try
+        {
+            AstarPath.active.UpdateGraphs(bounds);
+            AstarPath.active.FlushGraphUpdates();
+        }
+        finally
+        {
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider2D col = colliders[i];
+                if (col != null && col.isTrigger)
+                {
+                    col.enabled = triggerWasEnabled[i];
+                }
+            }
         }
     }
 
