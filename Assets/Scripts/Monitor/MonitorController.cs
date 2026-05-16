@@ -63,7 +63,7 @@ public class MonitorController : MonoBehaviour
     [SerializeField] private string[] includedCameraRooms = { "Hall", "Dorm", "Classroom", "Toilet" };
     [SerializeField, Min(0f)] private float roomBoundsPadding = 1f;
     [SerializeField, Tooltip("是否在监控静态画面上显示怪物位置（红点）。")]
-    private bool showMonsterBlipOnMonitor;
+    private bool showMonsterBlipOnMonitor = true;
 
     [Header("Image Feeds")]
     [SerializeField] private MonitorImageFeed[] imageFeeds = new MonitorImageFeed[0];

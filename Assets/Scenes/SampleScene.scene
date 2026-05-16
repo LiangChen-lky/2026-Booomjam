@@ -1424,7 +1424,7 @@ MonoBehaviour:
   - Toilet
   - Guardroom
   roomBoundsPadding: 1
-  showMonsterBlipOnMonitor: 0
+  showMonsterBlipOnMonitor: 1
   imageFeeds:
   - roomName: Classroom
     image: {fileID: 21300000, guid: 4c5d8eafd0d336e428a5cab8c02c76f3, type: 3}
