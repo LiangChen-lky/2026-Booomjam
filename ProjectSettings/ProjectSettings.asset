@@ -640,10 +640,10 @@ PlayerSettings:
   webGLDebugSymbols: 0
   webGLEmscriptenArgs: 
   webGLModulesDirectory: 
-  webGLTemplate: APPLICATION:Default
+  webGLTemplate: PROJECT:BOOOMv1
   webGLAnalyzeBuildSize: 0
   webGLUseEmbeddedResources: 0
-  webGLCompressionFormat: 0
+  webGLCompressionFormat: 2
   webGLWasmArithmeticExceptions: 0
   webGLLinkerTarget: 1
   webGLThreadsSupport: 0
@@ -826,10 +826,10 @@ PlayerSettings:
   weixinMiniGameDebugSymbols: 0
   weixinMiniGameEmscriptenArgs: 
   weixinMiniGameModulesDirectory: 
-  weixinMiniGameTemplate: APPLICATION:Default
+  weixinMiniGameTemplate: PROJECT:BOOOMv1
   weixinMiniGameAnalyzeBuildSize: 0
   weixinMiniGameUseEmbeddedResources: 0
-  weixinMiniGameCompressionFormat: 0
+  weixinMiniGameCompressionFormat: 2
   weixinMiniGameWasmArithmeticExceptions: 0
   weixinMiniGameLinkerTarget: 1
   weixinMiniGameThreadsSupport: 0
@@ -847,7 +847,7 @@ PlayerSettings:
   weixinMiniGameInjectStrippedMethodLogger: 0
   weixinMiniGameEnableDotNetWasmExceptionHandling: 1
   weixinMiniGamePreserveEventDelegate: 0
-  activeSubplatform: 1
+  activeSubplatform: 0
   serializedFileTypeTreeMemoryOptimization: 0
   activeHtmlChannel: -1
   stripBuiltinResources: 0
